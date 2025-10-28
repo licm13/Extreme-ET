@@ -9,6 +9,78 @@ import seaborn as sns
 from typing import Dict, List, Tuple
 
 
+def set_paper_style(context: str = "nature") -> None:
+    """Configure Matplotlib/Seaborn for a Nature/Science-like style.
+
+    Parameters
+    ----------
+    context : {"nature", "science", "talk", "poster"}
+        Slightly adjusts font sizes and line widths.
+    """
+    import matplotlib as mpl
+
+    # Base palette and style
+    sns.set_theme(style="whitegrid")
+    palette = [
+        "#1f77b4",  # blue
+        "#ff7f0e",  # orange
+        "#2ca02c",  # green
+        "#d62728",  # red
+        "#9467bd",  # purple
+        "#8c564b",  # brown
+    ]
+    sns.set_palette(palette)
+
+    # Typography and layout tuned for clarity
+    base = {
+        "font.family": "DejaVu Sans",
+        "axes.titlesize": 12,
+        "axes.labelsize": 11,
+        "axes.titleweight": "bold",
+        "axes.linewidth": 0.8,
+        "axes.spines.top": False,
+        "axes.spines.right": False,
+        "xtick.labelsize": 10,
+        "ytick.labelsize": 10,
+        "legend.frameon": False,
+        "legend.fontsize": 9,
+        "lines.linewidth": 1.6,
+        "grid.alpha": 0.25,
+        "figure.dpi": 150,
+        "savefig.dpi": 300,
+        "savefig.bbox": "tight",
+    }
+
+    if context in {"talk", "poster"}:
+        base.update({
+            "axes.titlesize": 14,
+            "axes.labelsize": 12,
+            "xtick.labelsize": 11,
+            "ytick.labelsize": 11,
+            "legend.fontsize": 10,
+            "lines.linewidth": 1.8,
+        })
+
+    mpl.rcParams.update(base)
+
+
+def label_subplots(axes: List, xpos: float = -0.08, ypos: float = 1.02, start: str = 'a') -> None:
+    """Add (a), (b), ... labels to a list/array of axes in-place.
+
+    Parameters
+    ----------
+    axes : list of Axes
+        Axes to annotate in reading order.
+    xpos, ypos : float
+        Relative axes coordinates for label placement.
+    start : str
+        Starting letter, default 'a'.
+    """
+    letters = [chr(ord(start) + i) for i in range(len(axes))]
+    for ax, letter in zip(np.ravel(axes), letters):
+        ax.text(xpos, ypos, f"({letter})", transform=ax.transAxes, fontsize=12, weight="bold", va="bottom")
+
+
 def generate_synthetic_data(n_days=365*40, add_trend=True, add_seasonality=True, 
                            seed=42):
     """

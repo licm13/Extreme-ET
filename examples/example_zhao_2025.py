@@ -1,4 +1,4 @@
-"""Advanced replication of Zhao et al. (2025) methodology.
+﻿"""Advanced replication of Zhao et al. (2025) methodology.
 
 This expanded example emphasises complex, multi-scenario workflows:
 
@@ -110,14 +110,14 @@ def main():
 
     scenarios: Dict[str, Dict[str, np.ndarray]] = {}
     for name, spec in scenario_specs.items():
-        print(f"  • {name.replace('_', ' ').title()} (seed={spec['seed']})")
+        print(f"  - {name.replace('_', ' ').title()} (seed={spec['seed']})")
         data = generate_synthetic_data(n_days=n_days, seed=spec['seed'])
         data = _inject_bias(data, spec['bias'])
         data = _mask_and_fill(data, spec['mask_fraction'], seed=spec['seed'] + 99)
         scenarios[name] = data
         print(
-            f"    Mean temperature: {np.mean(data['T_mean']):6.2f}°C | "
-            f"Solar radiation: {np.mean(data['Rs']):6.2f} MJ/m²/day | "
+            f"    Mean temperature: {np.mean(data['T_mean']):6.2f}掳C | "
+            f"Solar radiation: {np.mean(data['Rs']):6.2f} MJ/m虏/day | "
             f"Wind: {np.mean(data['u2']):4.2f} m/s"
         )
 
@@ -159,7 +159,7 @@ def main():
             'details': details,
         }
         print(
-            f"  ERT_hist severity {severity * 100:4.1f}% → "
+            f"  ERT_hist severity {severity * 100:4.1f}% - "
             f"threshold {threshold:.2f} mm/day, events={details['n_events']}, "
             f"extreme days={details['n_extreme_days']}"
         )
@@ -169,7 +169,7 @@ def main():
         ET0, severity=0.025, min_duration=4, window=11, return_details=True
     )
     print(
-        f"  ERT_clim severity 2.5% → mean threshold {np.mean(thresholds_clim):.2f} mm/day, "
+        f"  ERT_clim severity 2.5% - mean threshold {np.mean(thresholds_clim):.2f} mm/day, "
         f"events={details_clim['n_events']}, extreme days={details_clim['n_extreme_days']}"
     )
 
@@ -186,7 +186,7 @@ def main():
         actual_rate = mask.mean()
         opt_threshold_collection[severity] = (thresholds_opt, actual_rate)
         print(
-            f"  OPT target {severity * 100:5.2f}% → realised {actual_rate * 100:5.2f}% occurrence"
+            f"  OPT target {severity * 100:5.2f}% - realised {actual_rate * 100:5.2f}% occurrence"
         )
 
     # Step 5: Contribution analysis for multiple scenarios
@@ -282,7 +282,7 @@ def main():
         ax6.plot(
             doy_array,
             thresholds_opt[:366],
-            label=f"Target {severity * 100:4.2f}% → actual {actual_rate * 100:4.2f}%"
+            label=f"Target {severity * 100:4.2f}% - actual {actual_rate * 100:4.2f}%"
         )
     ax6.set_xlabel('Day of Year')
     ax6.set_ylabel('Threshold (mm/day)')

@@ -1,4 +1,4 @@
-"""Example replicating (and extending) the Markonis (2025) methodology
+﻿"""Example replicating (and extending) the Markonis (2025) methodology
 
 This script now showcases a substantially more complex workflow:
 
@@ -74,7 +74,7 @@ def main():
     evap = np.clip(evap, 0.05, None)
 
     print(f"  Generated {n_days} days of evaporation data")
-    print(f"  Mean ± std: {np.mean(evap):.2f} ± {np.std(evap):.2f} mm/day")
+    print(f"  Mean 卤 std: {np.mean(evap):.2f} 卤 {np.std(evap):.2f} mm/day")
     print(f"  Range: {np.min(evap):.2f} to {np.max(evap):.2f} mm/day")
 
     # Step 1b: Inject and repair missing observations
@@ -110,8 +110,8 @@ def main():
     z_scores_pentad = standardize_to_zscore(evap, pentad=True)
     z_scores_monthly = standardize_to_zscore(evap, pentad=False)
 
-    print(f"  Pentad mean ± std: {np.mean(z_scores_pentad):.3f} ± {np.std(z_scores_pentad):.3f}")
-    print(f"  Monthly mean ± std: {np.mean(z_scores_monthly):.3f} ± {np.std(z_scores_monthly):.3f}")
+    print(f"  Pentad mean 卤 std: {np.mean(z_scores_pentad):.3f} 卤 {np.std(z_scores_pentad):.3f}")
+    print(f"  Monthly mean 卤 std: {np.mean(z_scores_monthly):.3f} 卤 {np.std(z_scores_monthly):.3f}")
 
     # Step 3: Persistence diagnostics for both scales
     print("\n[Step 3] Assessing persistence across temporal scales...")
@@ -123,11 +123,11 @@ def main():
 
     print(f"  Hurst (pentad):  {hurst_pentad:.3f}")
     print(f"  Hurst (monthly): {hurst_monthly:.3f}")
-    print("  → Persistence is stronger at coarser (monthly) scale" if hurst_monthly > hurst_pentad
-          else "  → Persistence comparable across scales")
-
-    # Step 4: Severity-stratified ExEvE detection
-    print("\n[Step 4] Detecting Extreme Evaporation Events across severities...")
+    print(
+        "  Persistence is stronger at coarser (monthly) scale"
+        if hurst_monthly > hurst_pentad
+        else "  Persistence comparable across scales"
+    )
     severities = [0.001, 0.005, 0.01]
     severity_results = {}
 
@@ -143,10 +143,9 @@ def main():
             'metrics': metrics
         }
         print(
-            f"  Severity {sev * 100:4.1f}% → threshold {threshold:.2f} mm/day, "
+            f"  Severity {sev * 100:4.1f}% - threshold {threshold:.2f} mm/day, "
             f"{details['n_events']} events, mean duration {metrics['mean_duration']:.1f} days"
         )
-
     # Choose a reference severity (0.5%) for downstream composites
     ref_severity = 0.005
     extreme_mask = severity_results[ref_severity]['mask']

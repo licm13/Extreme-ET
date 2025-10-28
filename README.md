@@ -5,55 +5,55 @@
 
 A comprehensive Python toolkit for analyzing extreme evaporation events, implementing methods from:
 
-- **Markonis (2025)**: "On the Definition of Extreme Evaporation Events" ([Geophysical Research Letters](https://doi.org/10.1029/2024GL113038))
-- **Zhao et al. (2025)**: "Regional Variations in Drivers of Extreme Reference Evapotranspiration Across the Contiguous United States" ([Water Resources Research](https://doi.org/10.1029/2025WR040177))
+- Markonis (2025): "On the Definition of Extreme Evaporation Events" (Geophysical Research Letters)
+- Zhao et al. (2025): "Regional Variations in Drivers of Extreme Reference Evapotranspiration Across CONUS" (Water Resources Research)
 
-## 📋 Table of Contents
+## Table of Contents
 
 - [Features](#features)
 - [Installation](#installation)
 - [Quick Start](#quick-start)
 - [Core Methods](#core-methods)
 - [Examples](#examples)
+- [Multi-Resolution Validation & Paper-Style Outputs](#multi-resolution-validation--paper-style-outputs)
 - [Testing](#testing)
 - [Project Structure](#project-structure)
+- [Key Equations Implemented](#key-equations-implemented)
 - [Citation](#citation)
+- [Contributing](#contributing)
 - [License](#license)
+- [Acknowledgments](#acknowledgments)
+- [Contact](#contact)
 
-## ✨ Features
+## Features
 
 ### Extreme Event Detection
-- **ERT_hist**: Historical relative threshold method for identifying large values
-- **ERT_clim**: Climatological method for detecting anomalies (similar to heatwaves)
-- **OPT Method**: Optimal Path Threshold for severity-based event definition
+- ERT_hist: historical relative threshold
+- ERT_clim: climatological, season-aware thresholds (heatwave-like)
+- OPT: optimal day-of-year threshold family for target severity
 
 ### Evapotranspiration Calculation
-- **ASCE-PM Equation**: Standardized Penman-Monteith for grass reference surface
-- Net radiation calculation with extraterrestrial radiation
-- Vapor pressure conversions (VPD, relative humidity, actual vapor pressure)
+- ASCE-PM reference ET0
+- Net radiation and vapor pressure helpers
 - Wind speed height adjustments
 
 ### Contribution Analysis
-- Meteorological driver attribution (temperature, radiation, wind, humidity)
-- Sensitivity analysis with perturbation methods
-- Seasonal contribution patterns
-- Regional spatial analysis support
+- Driver attribution (temperature, radiation, wind, humidity)
+- Seasonal contribution patterns and sensitivity analysis
 
 ### Statistical Tools
-- Z-score standardization (pentad and daily)
-- Hurst coefficient for long-term persistence
-- Autocorrelation analysis
-- Moving average smoothing
-- Event clustering identification
+- Z-score standardization (pentad/daily)
+- Hurst coefficient and autocorrelation
+- Event identification and metrics
 
-## 🚀 Installation
+## Installation
 
 ### Option 1: pip install (recommended)
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/extreme-evaporation-events.git
-cd extreme-evaporation-events
+git clone https://github.com/yourusername/extreme-et.git
+cd extreme-et
 
 # Install requirements
 pip install -r requirements.txt
@@ -81,7 +81,14 @@ matplotlib>=3.4.0
 seaborn>=0.11.0
 ```
 
-## 🎯 Quick Start
+Optional (for NetCDF IO and interpolation):
+
+```
+xarray>=2023.1.0
+netCDF4>=1.6.0
+```
+
+## Quick Start
 
 ### Example 1: Basic Extreme Detection
 
@@ -90,310 +97,139 @@ import numpy as np
 from src.extreme_detection import detect_extreme_events_hist
 from src.utils import generate_synthetic_data
 
-# Generate synthetic ET0 data
 data = generate_synthetic_data(n_days=365*40)
 
-# Detect extreme events (0.5% severity ≈ 1.8 days/year)
-extreme_mask, threshold = detect_extreme_events_hist(
-    data['ET0'], severity=0.005
+# 0.5% severity ≈ 1.8 days/year
+extreme_mask, threshold, details = detect_extreme_events_hist(
+    data['ET0'] if 'ET0' in data else data['Rs'], severity=0.005, return_details=True
 )
-
-print(f"Threshold: {threshold:.2f} mm/day")
-print(f"Number of extreme days: {np.sum(extreme_mask)}")
+print(f"Threshold: {threshold:.2f} | Extreme days: {details['n_extreme_days']}")
 ```
 
-### Example 2: Calculate ET0 with Penman-Monteith
+### Example 2: Penman-Monteith ET0
 
 ```python
 from src.penman_monteith import calculate_et0
-
-# Meteorological forcings
 T_mean, T_max, T_min = 20, 25, 15  # °C
-Rs = 20.0  # Solar radiation (MJ m-2 day-1)
-u2 = 2.0   # Wind speed at 2m (m s-1)
-ea = 1.5   # Actual vapor pressure (kPa)
-
-# Calculate reference ET0
-ET0 = calculate_et0(T_mean, T_max, T_min, Rs, u2, ea, 
-                   z=50, latitude=40)
+Rs, u2, ea = 20.0, 2.0, 1.5
+ET0 = calculate_et0(T_mean, T_max, T_min, Rs, u2, ea, z=50, latitude=40)
 print(f"ET0 = {ET0:.2f} mm/day")
 ```
 
-### Example 3: Contribution Analysis
+### Example 3: Real-Data IO (xarray stub)
 
 ```python
-from src.contribution_analysis import calculate_contributions
+from src.io_utils import read_netcdf_variable, sample_series_at_point
+path = 'path/to/product.nc'  # edit
+var  = 'et'                  # edit
+lat, lon = 35.0, -120.0
 
-# Assuming you have meteorological data and extreme_mask
-contributions = calculate_contributions(
-    T_mean, T_max, T_min, Rs, u2, ea, 
-    extreme_mask
-)
-
-print("Relative contributions:")
-for driver, percent in contributions.items():
-    print(f"  {driver.capitalize():12s}: {percent:5.1f}%")
+da, lats, lons, times = read_netcdf_variable(path, var)
+series_nn = sample_series_at_point(da, lat, lon, method='nearest')
+series_bl = sample_series_at_point(da, lat, lon, method='bilinear')
 ```
 
-## 📚 Core Methods
+## Core Methods
 
-### 1. Extreme Event Detection
+1) ERT_hist: upper-tail percentile across full record — fast/simple
+2) ERT_clim: day-of-year thresholds with smoothing and persistence
+3) OPT: DOY threshold family optimized to target occurrence rate
 
-#### ERT_hist Method (Zhao et al. 2025)
-```python
-from src.extreme_detection import detect_extreme_events_hist
+## Examples
 
-# Detect events based on historical extremes
-extreme_mask, threshold, details = detect_extreme_events_hist(
-    data, 
-    severity=0.005,      # Occurrence rate (0.5%)
-    return_details=True  # Include event statistics
-)
-```
+Complete workflows are under `examples/`:
+- example_markonis_2025.py: ExEvE detection, persistence diagnostics, water cycle decomposition, trends
+- example_zhao_2025.py: ET0 diagnostics, ERT_hist/ERT_clim/OPT comparisons, contributions, seasonal patterns
+- example_multires_et_extremes.py: Multi-resolution/frequency validation vs. stations
 
-#### ERT_clim Method (Zhao et al. 2025)
-```python
-from src.extreme_detection import detect_extreme_events_clim
+Outputs are saved to `examples/outputs/`.
 
-# Detect anomalies relative to climatology
-extreme_mask, thresholds, details = detect_extreme_events_clim(
-    data,
-    severity=0.05,       # 5% occurrence rate
-    min_duration=3,      # Minimum consecutive days
-    window=7,            # Moving average window
-    return_details=True
-)
-```
+## Multi-Resolution Validation & Paper-Style Outputs
 
-### 2. Data Processing
+We added an example and utilities to evaluate how spatial resolution (0.25° vs 0.1°) and temporal sampling (hourly vs daily) affect extreme ET detection against station observations.
 
-#### Standardization (Markonis 2025)
-```python
-from src.data_processing import standardize_to_zscore
+- Example: examples/example_multires_et_extremes.py
+  - Compares 0.25° and 0.1° products (daily and hourly→daily aggregates)
+  - Methods: ERT_hist (0.1–1%), ERT_clim (5%), OPT (DOY thresholds)
+  - Metrics: POD, FAR, CSI with ±1-day tolerance; timing-error histograms
+  - Outputs: paper-style figures + IMRaD Markdown manuscript
+- Utilities: src/evaluation.py (skill, severity sweeps, timing errors)
+- Plotting: src/utils.py (set_paper_style, label_subplots)
+- Optional IO: src/io_utils.py (read_netcdf_variable, sample_series_at_point)
 
-# Remove seasonality via z-score transformation
-z_scores = standardize_to_zscore(data, pentad=True)
-```
+Run:
 
-#### Hurst Coefficient
-```python
-from src.data_processing import calculate_hurst_exponent
-
-# Estimate long-term persistence
-H = calculate_hurst_exponent(data, max_lag=10)
-# H ≈ 0.5: no persistence
-# H > 0.5: clustering (long-term persistence)
-```
-
-### 3. Penman-Monteith Equation
-
-```python
-from src.penman_monteith import calculate_et0
-
-# Daily ET0 calculation
-ET0 = calculate_et0(
-    T_mean, T_max, T_min,  # Temperature (°C)
-    Rs,                     # Solar radiation (MJ m-2 day-1)
-    u2,                     # Wind speed at 2m (m s-1)
-    ea,                     # Vapor pressure (kPa)
-    z=50,                   # Elevation (m)
-    latitude=40,            # Latitude (degrees)
-    doy=None                # Day of year (optional)
-)
-```
-
-### 4. Contribution Analysis
-
-```python
-from src.contribution_analysis import (
-    calculate_contributions,
-    analyze_seasonal_contributions,
-    identify_dominant_driver
-)
-
-# Overall contributions
-contributions = calculate_contributions(
-    T_mean, T_max, T_min, Rs, u2, ea, 
-    extreme_mask
-)
-
-# Seasonal breakdown
-seasonal_contrib = analyze_seasonal_contributions(
-    T_mean, T_max, T_min, Rs, u2, ea,
-    extreme_mask
-)
-
-# Identify dominant driver
-dominant, contribution = identify_dominant_driver(contributions)
-```
-
-## 📖 Examples
-
-### Complete Workflow Examples
-
-#### Markonis (2025) Method
 ```bash
-cd examples
-python example_markonis_2025.py
+python examples/example_multires_et_extremes.py
 ```
 
-This demonstrates:
-- Data standardization and deseasonalization
-- Autocorrelation and Hurst coefficient analysis
-- ExEvE detection and characterization
-- Water cycle decomposition (P-E and (P+E)/2)
-- Temporal trend analysis
-
-#### Zhao et al. (2025) Method
-```bash
-cd examples
-python example_zhao_2025.py
-```
-
-This demonstrates:
-- Penman-Monteith ET0 calculation
-- Both ERT_hist and ERT_clim detection
-- OPT method for threshold determination
-- Contribution analysis of meteorological drivers
-- Seasonal pattern analysis
-- Sensitivity to temporal scales and severity levels
-
-### Expected Outputs
-
-Both example scripts generate:
-- Time series plots with highlighted extreme events
-- Contribution pie charts
-- Seasonal analysis bar plots
-- Trend analysis figures
-- Method comparison visualizations
-
-All figures are saved to `/mnt/user-data/outputs/`
-
-## 🧪 Testing
-
-Run comprehensive tests:
+## Testing
 
 ```bash
 cd tests
 python test_methods.py
 ```
 
-Tests cover:
-- ✓ Data processing functions
-- ✓ Extreme detection methods
-- ✓ Penman-Monteith calculations
-- ✓ Contribution analysis
-- ✓ Synthetic data generation
-- ✓ Complete workflow integration
+Tests cover data processing, detection methods, ET0 calculations, contributions, synthetic generation, and workflows.
 
-## 📁 Project Structure
+## Project Structure
 
 ```
-extreme-evaporation-events/
-├── README.md                          # This file
-├── requirements.txt                   # Python dependencies
-├── setup.py                          # Package installation script
-│
+Extreme-ET/
+├── README.md                         # Docs (this file)
+├── requirements.txt                  # Base dependencies
+├── setup.py                          # Package setup
 ├── src/                              # Core package
-│   ├── __init__.py                   # Package initialization
-│   ├── data_processing.py            # Z-scores, Hurst, autocorrelation
-│   ├── extreme_detection.py          # ERT_hist, ERT_clim, OPT
-│   ├── penman_monteith.py            # ASCE-PM equation
-│   ├── contribution_analysis.py      # Driver attribution
-│   └── utils.py                      # Plotting and utilities
-│
-├── examples/                         # Usage examples
-│   ├── example_markonis_2025.py      # Markonis (2025) workflow
-│   └── example_zhao_2025.py          # Zhao et al. (2025) workflow
-│
-└── tests/                            # Unit tests
-    └── test_methods.py               # Comprehensive test suite
+│  ├── __init__.py
+│  ├── data_processing.py             # Z-scores, Hurst, autocorrelation
+│  ├── extreme_detection.py           # ERT_hist, ERT_clim, OPT
+│  ├── penman_monteith.py             # ASCE-PM equation
+│  ├── contribution_analysis.py       # Driver attribution
+│  ├── evaluation.py                  # Skill metrics, severity sweeps, timing errors
+│  ├── io_utils.py                    # xarray/NetCDF IO + interpolation (optional)
+│  └── utils.py                       # Plotting utils and paper style presets
+├── examples/
+│  ├── example_markonis_2025.py       # Markonis (2025) workflow
+│  ├── example_zhao_2025.py           # Zhao et al. (2025) workflow
+│  ├── example_multires_et_extremes.py# Multi-resolution & frequency validation
+│  └── example_realdata_io_stub.py    # Minimal xarray + sampling demo (edit paths)
+├── examples/outputs/                 # Generated figures and summaries
+└── tests/
+   └── test_methods.py                # Comprehensive test suite
 ```
 
-## 📊 Key Equations Implemented
+## Key Equations Implemented
 
-### 1. ASCE Standardized Penman-Monteith (Equation 3, Zhao et al. 2025)
+ASCE Standardized Penman-Monteith:
 
 ```
 ET0 = [0.408 Δ (Rn - G) + γ (900/(T+273)) u2 (es - ea)] / [Δ + γ(1 + 0.34 u2)]
 ```
 
-where:
-- Δ = slope of saturation vapor pressure curve (kPa °C⁻¹)
-- Rn = net radiation (MJ m⁻² day⁻¹)
-- G = soil heat flux (≈ 0 for daily step)
-- γ = psychrometric constant (kPa °C⁻¹)
-- T = mean air temperature (°C)
-- u2 = wind speed at 2m height (m s⁻¹)
-- es, ea = saturated and actual vapor pressure (kPa)
+Where Δ is slope of saturation vapor pressure curve; Rn net radiation; γ psychrometric constant; T air temperature; u2 2 m wind; es, ea saturated/actual vapor pressure.
 
-### 2. Contribution Analysis (Equations 4-5, Zhao et al. 2025)
+## Citation
 
-```
-RCi = (ETorig - ETclim_i) / Σ(ETorig - ETclim_i) × 100%
-```
+Please cite the original papers (Markonis 2025; Zhao et al. 2025) when using this toolkit.
 
-where forcing i is replaced with its climatological value while others remain unchanged.
+## Contributing
 
-### 3. Hurst Coefficient (Markonis 2025)
+Issues and PRs are welcome: bug reports, features, docs.
 
-Estimated via Maximum Likelihood from autocorrelation structure:
-- H ≈ 0.5: white noise (no clustering)
-- H > 0.5: long-term persistence (clustering)
-- H ≈ 0.85: typical for evaporation time series
+## License
 
-## 🎓 Citation
+MIT License (see LICENSE).
 
-If you use this toolkit in your research, please cite the original papers:
+## Acknowledgments
 
-```bibtex
-@article{markonis2025extreme,
-  title={On the Definition of Extreme Evaporation Events},
-  author={Markonis, Yannis},
-  journal={Geophysical Research Letters},
-  volume={52},
-  pages={e2024GL113038},
-  year={2025},
-  doi={10.1029/2024GL113038}
-}
+- Methodologies by Markonis (2025) and Zhao et al. (2025)
+- ASCE-PM from Allen et al. (1998) FAO-56
 
-@article{zhao2025regional,
-  title={Regional Variations in Drivers of Extreme Reference Evapotranspiration 
-         Across the Contiguous United States},
-  author={Zhao, Bingjie and Horvat, Christopher and Pearson, Christopher and 
-          Shah, Deep and Gao, Huilin},
-  journal={Water Resources Research},
-  volume={61},
-  pages={e2025WR040177},
-  year={2025},
-  doi={10.1029/2025WR040177}
-}
-```
+## Contact
 
-## 🤝 Contributing
-
-Contributions are welcome! Please feel free to:
-- Report bugs or issues
-- Suggest new features
-- Submit pull requests
-- Improve documentation
-
-## 📄 License
-
-This project is licensed under the MIT License - see LICENSE file for details.
-
-## 🙏 Acknowledgments
-
-- Original methodologies by Markonis (2025) and Zhao et al. (2025)
-- ASCE-PM equation from Allen et al. (1998) FAO-56
-- Inspired by the need for standardized extreme evaporation analysis
-
-## 📧 Contact
-
-For questions or support:
 - Open an issue on GitHub
-- Email: [your-email@example.com]
+- Email: your-email@example.com
 
 ---
 
-**Note**: This toolkit uses synthetic data for demonstrations. For research applications, use actual meteorological observations or validated reanalysis products (e.g., gridMET, ERA5-Land, Daymet).
+Note: Examples use synthetic data for demonstration; use validated observations/reanalysis for research (e.g., gridMET, ERA5-Land, Daymet).
