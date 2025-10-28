@@ -31,7 +31,8 @@ evapotranspiration across the contiguous United States. Water Resources Research
 
 import numpy as np
 import pandas as pd
-from typing import Tuple, List, Dict, Optional, Union
+from scipy import stats
+from typing import Tuple, List, Dict, Optional, Union, Iterable
 from .data_processing import moving_average
 
 
@@ -65,9 +66,144 @@ DAYS_IN_LEAP_YEAR = 366
 # 主要检测函数 (Main Detection Functions)
 # ============================================================================
 
+
+def _estimate_tail_threshold(
+    data: Union[np.ndarray, List, pd.Series],
+    severity: float,
+    model: str = 'empirical',
+    base_quantile: float = 0.9,
+    min_exceedances: int = 20
+) -> Tuple[float, Dict[str, Union[str, float, int]]]:
+    """Estimate an upper-tail threshold for a given severity level.
+
+    This helper consolidates the empirical percentile approach used in Zhao
+    et al. (2025) with an optional extreme value extension based on the
+    Generalized Pareto Distribution (GPD).  The GPD branch follows the peak
+    over threshold framework and extrapolates the quantile corresponding to
+    the target occurrence rate when sufficient exceedances are available.
+
+    Parameters
+    ----------
+    data : array-like
+        Sample values.
+    severity : float
+        Tail probability (e.g., ``0.005`` for the top 0.5% of the
+        distribution).
+    model : {"empirical", "gpd"}, default="empirical"
+        Tail estimator to use.  ``"empirical"`` relies on the direct sample
+        quantile.  ``"gpd"`` fits a generalized Pareto distribution to the
+        exceedances above ``base_quantile`` and extrapolates the requested
+        severity.  The function automatically falls back to the empirical
+        estimate if the tail sample is too small or the fitted parameters are
+        numerically unstable.
+    base_quantile : float, default=0.9
+        Quantile used as the lower bound of the tail model when ``model`` is
+        ``"gpd"``.  Must satisfy ``base_quantile > 1 - severity`` so that the
+        extrapolation targets a rarer percentile than the fitting threshold.
+    min_exceedances : int, default=20
+        Minimum number of exceedances required to activate the GPD branch.
+
+    Returns
+    -------
+    threshold : float
+        Estimated threshold value.
+    info : dict
+        Dictionary describing the tail model, fitted parameters, and
+        diagnostics that can be surfaced to the calling function.
+    """
+
+    data = np.asarray(data, dtype=float)
+    if data.ndim != 1:
+        data = data.ravel()
+
+    quantile = 1 - severity
+    info: Dict[str, Union[str, float, int]] = {
+        'tail_model': model,
+        'severity': float(severity),
+        'target_quantile': float(quantile),
+    }
+
+    if model.lower() != 'gpd':
+        threshold = float(np.quantile(data, quantile))
+        info['tail_model'] = 'empirical'
+        return threshold, info
+
+    # Ensure base quantile is sensible and targets a less extreme percentile
+    # than the requested severity.
+    base_quantile = float(np.clip(base_quantile, 0.0, 0.999))
+    if base_quantile <= quantile:
+        base_quantile = min(0.95, max(quantile + 1e-4, base_quantile + 1e-4))
+
+    threshold_base = float(np.quantile(data, base_quantile))
+    exceedances = data[data > threshold_base] - threshold_base
+    n_exceedances = exceedances.size
+    p_exceed_base = 1 - base_quantile
+
+    info.update({
+        'tail_model': 'gpd',
+        'base_quantile': base_quantile,
+        'base_threshold': threshold_base,
+        'n_exceedances': int(n_exceedances),
+        'p_exceed_base': p_exceed_base,
+    })
+
+    # Guard conditions for the GPD fit.
+    if (
+        n_exceedances < max(min_exceedances, 5)
+        or severity >= p_exceed_base
+        or np.allclose(np.std(exceedances), 0.0)
+    ):
+        info['tail_model'] = 'empirical_fallback'
+        threshold = float(np.quantile(data, quantile))
+        info['threshold_fallback'] = threshold
+        return threshold, info
+
+    try:
+        shape, loc, scale = stats.genpareto.fit(exceedances, floc=0)
+    except (RuntimeError, ValueError) as exc:
+        info['tail_model'] = 'empirical_fallback'
+        info['fit_error'] = str(exc)
+        threshold = float(np.quantile(data, quantile))
+        info['threshold_fallback'] = threshold
+        return threshold, info
+
+    info.update({
+        'gpd_shape': float(shape),
+        'gpd_scale': float(scale),
+    })
+
+    if scale <= 0:
+        info['tail_model'] = 'empirical_fallback'
+        threshold = float(np.quantile(data, quantile))
+        info['threshold_fallback'] = threshold
+        return threshold, info
+
+    # Compute quantile using the survival function of the fitted GPD.
+    ratio = severity / p_exceed_base
+    ratio = max(ratio, 1e-12)
+
+    if abs(shape) < 1e-6:
+        # Limit as shape -> 0 (exponential tail)
+        tail_increment = scale * np.log(1 / ratio)
+    else:
+        tail_increment = (scale / shape) * (ratio ** (-shape) - 1)
+
+    threshold = threshold_base + tail_increment
+    info['threshold_extrapolated'] = float(threshold)
+
+    # Safety: ensure extrapolated threshold is at least as large as the base.
+    if threshold < threshold_base:
+        threshold = float(np.quantile(data, quantile))
+        info['tail_model'] = 'empirical_fallback'
+        info['threshold_fallback'] = threshold
+
+    return float(threshold), info
+
 def detect_extreme_events_hist(
     data: Union[np.ndarray, List, pd.Series],
     severity: float = DEFAULT_SEVERITY_HIST,
+    tail_model: str = 'empirical',
+    gpd_base_quantile: float = 0.9,
     return_details: bool = False
 ) -> Union[Tuple[np.ndarray, float], Tuple[np.ndarray, float, Dict]]:
     """
@@ -108,6 +244,17 @@ def detect_extreme_events_hist(
         范围: (0, 1)
         Range: (0, 1)
 
+    tail_model : {"empirical", "gpd"}, default="empirical"
+        上尾阈值估计方法选择
+        Tail model selector. ``"empirical"`` keeps the historical percentile
+        approach, while ``"gpd"`` enables a Generalized Pareto extrapolation
+        for very rare events.
+
+    gpd_base_quantile : float, default=0.9
+        当使用 GPD 扩展时的基准分位数
+        Base quantile used for fitting the tail model when
+        ``tail_model='gpd'``. 必须高于目标分位数以保证外推有效。
+
     return_details : bool, default=False
         是否返回详细事件信息
         Whether to return detailed event information
@@ -131,6 +278,8 @@ def detect_extreme_events_hist(
         Detailed event information (when return_details=True)
         键值对 (Keys):
             - 'threshold': 阈值 (threshold value)
+            - 'tail_model': 阈值拟合方法 (tail fitting method)
+            - 'threshold_diagnostics': 阈值诊断信息 (diagnostic dict)
             - 'n_extreme_days': 极端日数量 (number of extreme days)
             - 'occurrence_rate': 实际发生率 (actual occurrence rate)
             - 'n_events': 事件数量 (number of events)
@@ -221,6 +370,20 @@ def detect_extreme_events_hist(
             f"Severity parameter ({severity}) must be in range (0, 1)"
         )
 
+    # 规范化尾部模型名称并验证 (Normalize and validate tail model)
+    tail_model_normalized = tail_model.lower()
+    if tail_model_normalized not in {'empirical', 'gpd'}:
+        raise ValueError(
+            "tail_model 必须为 'empirical' 或 'gpd'\n"
+            "tail_model must be either 'empirical' or 'gpd'"
+        )
+
+    if not 0 < gpd_base_quantile < 1:
+        raise ValueError(
+            f"gpd_base_quantile ({gpd_base_quantile}) 必须在 (0, 1) 范围内\n"
+            f"gpd_base_quantile ({gpd_base_quantile}) must fall within (0, 1)"
+        )
+
     # 检查是否有 NaN 值 (Check for NaN values)
     if np.any(np.isnan(data)):
         raise ValueError(
@@ -234,11 +397,14 @@ def detect_extreme_events_hist(
 
     n = len(data)
 
-    # 计算百分位数阈值 (Calculate percentile threshold)
-    # quantile = 1 - severity 因为我们要找上端极值
-    # quantile = 1 - severity because we want upper extreme values
-    quantile = 1 - severity
-    threshold = np.quantile(data, quantile)
+    # 计算上尾阈值，可选择经验分位数或 GPD 外推
+    # Estimate the tail threshold using empirical quantiles or a GPD fit
+    threshold, tail_info = _estimate_tail_threshold(
+        data,
+        severity=severity,
+        model=tail_model_normalized,
+        base_quantile=gpd_base_quantile,
+    )
 
     # ========================================================================
     # 极端日识别 (Extreme Day Identification)
@@ -275,6 +441,8 @@ def detect_extreme_events_hist(
     # 组装详细信息字典 (Assemble details dictionary)
     details = {
         'threshold': float(threshold),
+        'tail_model': tail_info.get('tail_model', tail_model_normalized),
+        'threshold_diagnostics': tail_info,
         'n_extreme_days': int(n_extreme_days),
         'occurrence_rate': float(occurrence_rate),
         'n_events': len(events),
@@ -520,6 +688,191 @@ def detect_extreme_events_clim(
     }
 
     return extreme_mask, thresholds, details
+
+
+def detect_compound_extreme_events(
+    data: Union[np.ndarray, List, pd.Series],
+    scales: Iterable[int] = (7, 30),
+    severity_levels: Optional[Iterable[float]] = None,
+    aggregator: str = 'all',
+    weights: Optional[Iterable[float]] = None,
+    tail_model: str = 'empirical',
+    gpd_base_quantile: float = 0.9,
+    return_details: bool = False
+) -> Union[Tuple[np.ndarray, Dict[int, float]], Tuple[np.ndarray, Dict[int, float], Dict]]:
+    """多尺度复合极端事件检测 (Compound multi-scale extreme detection).
+
+    Inspired by the "复合阈值与尺度依赖检测" extension, this function applies
+    multiple moving-average filters and enforces thresholds at each scale.  It
+    supports logical AND/OR aggregations as well as a weighted exceedance score
+    to highlight events that simultaneously amplify across thermal and
+    dynamical time horizons.
+
+    Parameters
+    ----------
+    data : array-like
+        时间序列数据（通常为日 ET0）
+        Time series data, typically daily ET0 values.
+    scales : iterable of int, default=(7, 30)
+        移动平均窗口（天）
+        Moving-average windows in days.  Each window defines a temporal scale.
+    severity_levels : iterable of float, optional
+        每个尺度的极端发生率（0-1）。如果只提供一个值，则对所有尺度复用。
+        Per-scale severity levels.  If ``None`` a default of 5% is used.  A
+        single value will be broadcast to all scales.
+    aggregator : {"all", "any", "weighted"}, default="all"
+        复合策略：``"all"`` 要求所有尺度同时超过阈值；``"any"`` 为并集；
+        ``"weighted"`` 根据权重加权正向超阈量。
+        Compound rule controlling how individual scale masks are combined.
+    weights : iterable of float, optional
+        当 ``aggregator='weighted'`` 时使用的权重。未提供则等权。
+        Positive weights for the weighted aggregator.  Ignored otherwise.
+    tail_model : {"empirical", "gpd"}, default="empirical"
+        阈值估计方法，同 :func:`detect_extreme_events_hist`。
+        Tail model for each scale's threshold.
+    gpd_base_quantile : float, default=0.9
+        GPD 拟合基准分位数，仅在 ``tail_model='gpd'`` 时生效。
+    return_details : bool, default=False
+        是否返回详细诊断信息。
+
+    Returns
+    -------
+    compound_mask : np.ndarray (bool)
+        表示复合极端日的布尔数组。
+        Boolean mask of compound extreme days.
+    scale_thresholds : dict
+        键为窗口长度，值为对应阈值。
+
+    details : dict, optional
+        当 ``return_details`` 为 ``True`` 时返回，包含各尺度掩码、阈值诊断、
+        事件统计及加权得分（若适用）。
+
+    Raises
+    ------
+    ValueError
+        当 ``scales`` 或 ``severity_levels`` 无法对齐，或 aggregator/权重无效时抛出。
+    """
+
+    data = np.asarray(data, dtype=float)
+    if np.any(np.isnan(data)):
+        raise ValueError("输入数据包含 NaN，请先清洗 / Input data contains NaN values")
+
+    n = data.size
+    if n < DAYS_PER_YEAR:
+        raise ValueError("复合检测建议至少使用一年数据 / At least one year of data is recommended")
+
+    windows = [int(w) for w in scales]
+    if any(w <= 0 for w in windows):
+        raise ValueError("所有窗口必须为正整数 / All windows must be positive integers")
+
+    if severity_levels is None:
+        severity_list = [DEFAULT_SEVERITY_CLIM] * len(windows)
+    else:
+        severity_list = list(severity_levels)
+        if len(severity_list) == 1 and len(windows) > 1:
+            severity_list = severity_list * len(windows)
+        if len(severity_list) != len(windows):
+            raise ValueError(
+                "severity_levels 长度必须与 scales 相同，或仅提供一个值\n"
+                "severity_levels must match number of scales or be a single value"
+            )
+
+    for sev in severity_list:
+        if not 0 < sev < 1:
+            raise ValueError("severity_levels 中的值必须位于 (0,1) 范围内")
+
+    aggregator_normalized = aggregator.lower()
+    if aggregator_normalized not in {'all', 'any', 'weighted'}:
+        raise ValueError("aggregator 必须为 'all'、'any' 或 'weighted'")
+
+    tail_model_normalized = tail_model.lower()
+    if tail_model_normalized not in {'empirical', 'gpd'}:
+        raise ValueError("tail_model 必须为 'empirical' 或 'gpd'")
+
+    if not 0 < gpd_base_quantile < 1:
+        raise ValueError("gpd_base_quantile 必须位于 (0,1)")
+
+    if aggregator_normalized == 'weighted':
+        if weights is None:
+            weight_array = np.ones(len(windows), dtype=float)
+        else:
+            weight_array = np.asarray(list(weights), dtype=float)
+            if weight_array.size != len(windows):
+                raise ValueError("weights 长度必须与 scales 一致")
+        if np.any(weight_array < 0):
+            raise ValueError("weights 必须为非负数")
+        if np.allclose(weight_array.sum(), 0):
+            weight_array = np.ones(len(windows), dtype=float)
+        weight_array = weight_array / weight_array.sum()
+    else:
+        weight_array = np.ones(len(windows), dtype=float) / len(windows)
+
+    scale_thresholds: Dict[int, float] = {}
+    scale_diagnostics: Dict[int, Dict[str, Union[str, float, int]]] = {}
+    scale_masks: Dict[int, np.ndarray] = {}
+    smoothed_series: Dict[int, np.ndarray] = {}
+
+    for window, severity in zip(windows, severity_list):
+        smoothed = moving_average(data, window=window)
+        threshold, diagnostics = _estimate_tail_threshold(
+            smoothed,
+            severity=severity,
+            model=tail_model_normalized,
+            base_quantile=gpd_base_quantile,
+        )
+
+        mask = smoothed > threshold
+        scale_thresholds[window] = float(threshold)
+        scale_diagnostics[window] = diagnostics
+        scale_masks[window] = mask
+        smoothed_series[window] = smoothed
+
+    masks = list(scale_masks.values())
+    if aggregator_normalized == 'all':
+        compound_mask = np.logical_and.reduce(masks)
+        composite_score = None
+    elif aggregator_normalized == 'any':
+        compound_mask = np.logical_or.reduce(masks)
+        composite_score = None
+    else:
+        composite_score = np.zeros(n, dtype=float)
+        for weight, window in zip(weight_array, windows):
+            smoothed = smoothed_series[window]
+            threshold = scale_thresholds[window]
+            denom = abs(threshold) + 1e-9
+            excess = np.clip(smoothed - threshold, a_min=0.0, a_max=None)
+            composite_score += weight * (excess / denom)
+        compound_mask = composite_score > 0
+
+    if not return_details:
+        return compound_mask, scale_thresholds
+
+    events = identify_events_from_mask(compound_mask)
+    enhanced_events = calculate_event_statistics(data, events)
+
+    details = {
+        'aggregator': aggregator_normalized,
+        'weights': weight_array,
+        'scale_thresholds': scale_thresholds,
+        'scale_severity_levels': dict(zip(windows, severity_list)),
+        'scale_threshold_diagnostics': scale_diagnostics,
+        'scale_occurrence_rates': {
+            window: float(mask.mean()) for window, mask in scale_masks.items()
+        },
+        'scale_masks': scale_masks,
+        'n_extreme_days': int(compound_mask.sum()),
+        'occurrence_rate': float(compound_mask.mean()),
+        'n_events': len(enhanced_events),
+        'events': enhanced_events,
+        'tail_model': tail_model_normalized,
+        'gpd_base_quantile': gpd_base_quantile,
+        'method': 'compound_multiscale',
+    }
+
+    if composite_score is not None:
+        details['composite_score'] = composite_score
+
+    return compound_mask, scale_thresholds, details
 
 
 def optimal_path_threshold(
@@ -982,6 +1335,7 @@ def calculate_event_statistics(
 __all__ = [
     'detect_extreme_events_hist',
     'detect_extreme_events_clim',
+    'detect_compound_extreme_events',
     'optimal_path_threshold',
     'identify_climatological_extremes',
     'identify_events_from_mask',

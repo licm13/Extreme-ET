@@ -92,7 +92,11 @@ def generate_synthetic_data(n_days=365*40, add_trend=True, add_seasonality=True,
     T_mean[extreme_idx] += np.random.randn(len(extreme_idx)) * 5 + 5
     Rs[extreme_idx] += np.random.randn(len(extreme_idx)) * 5 + 5
     u2[extreme_idx] += np.random.randn(len(extreme_idx)) * 2 + 2
-    
+
+    # Ensure physical bounds after perturbations
+    Rs = np.maximum(Rs, 0)
+    u2 = np.maximum(u2, 0.5)
+
     data = {
         'T_mean': T_mean,
         'T_max': T_max,
