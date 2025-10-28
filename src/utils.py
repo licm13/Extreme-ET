@@ -177,7 +177,12 @@ def plot_contribution_pie(contributions, title='Contribution Analysis'):
     fig, ax : matplotlib objects
     """
     labels = list(contributions.keys())
-    sizes = list(contributions.values())
+    # Take absolute values to handle negative contributions
+    sizes = [abs(val) for val in contributions.values()]
+    
+    # Normalize to ensure sum is 100%
+    total = sum(sizes)
+    sizes = [100 * s/total for s in sizes]
     
     colors = ['#ff6b6b', '#feca57', '#48dbfb', '#1dd1a1']
     
@@ -198,7 +203,7 @@ def plot_contribution_pie(contributions, title='Contribution Analysis'):
         autotext.set_fontsize(10)
         autotext.set_weight('bold')
     
-    ax.set_title(title, fontsize=14, weight='bold')
+    ax.set_title(title + '\n(Absolute Values)', fontsize=14, weight='bold')
     
     plt.tight_layout()
     

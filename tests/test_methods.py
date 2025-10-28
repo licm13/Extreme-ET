@@ -3,8 +3,13 @@ Comprehensive tests for extreme evaporation analysis methods
 """
 
 import numpy as np
+import os
 import sys
-sys.path.append('..')
+
+# Get the absolute path to the parent directory
+parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.append(parent_dir)
+print(f"Added to Python path: {parent_dir}")
 
 from src.data_processing import (
     standardize_to_zscore,
@@ -278,27 +283,45 @@ def run_all_tests():
     print("="*70)
     print()
     
-    try:
-        test_data_processing()
-        test_extreme_detection()
-        test_penman_monteith()
-        test_contribution_analysis()
-        test_synthetic_data_generation()
-        test_full_workflow()
-        
-        print("="*70)
+    tests = [
+        test_data_processing,
+        test_extreme_detection,
+        test_penman_monteith,
+        test_contribution_analysis,
+        test_synthetic_data_generation,
+        test_full_workflow
+    ]
+    
+    success = True
+    failures = []
+    
+    for test in tests:
+        try:
+            print(f"Running {test.__name__}...")
+            test()
+            print(f"✓ {test.__name__} passed\n")
+        except AssertionError as e:
+            failures.append((test.__name__, f"Assertion Error: {str(e)}"))
+            print(f"✗ {test.__name__} failed: {str(e)}\n")
+            success = False
+        except Exception as e:
+            failures.append((test.__name__, f"Unexpected Error: {str(e)}"))
+            print(f"✗ {test.__name__} failed with unexpected error:")
+            import traceback
+            traceback.print_exc()
+            print()
+            success = False
+    
+    print("="*70)
+    if success:
         print("✓ All tests passed successfully!")
-        print("="*70)
-        return True
-        
-    except AssertionError as e:
-        print(f"\n✗ Test failed: {e}")
-        return False
-    except Exception as e:
-        print(f"\n✗ Unexpected error: {e}")
-        import traceback
-        traceback.print_exc()
-        return False
+    else:
+        print("✗ Test Summary - Failed Tests:")
+        for test_name, error in failures:
+            print(f"  • {test_name}: {error}")
+    print("="*70)
+    
+    return success
 
 
 if __name__ == "__main__":

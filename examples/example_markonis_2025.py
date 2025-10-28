@@ -11,8 +11,12 @@ This script demonstrates:
 
 import numpy as np
 import matplotlib.pyplot as plt
+import os
 import sys
-sys.path.append('..')
+
+# Get the absolute path to the parent directory
+parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.append(parent_dir)
 
 from src.data_processing import (
     standardize_to_zscore,
@@ -147,10 +151,15 @@ def main():
     # Step 7: Visualization
     print("\n[Step 7] Creating visualizations...")
     
+    # Create output directory
+    output_dir = os.path.join(os.path.dirname(__file__), 'outputs')
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+    
     # Plot 1: Autocorrelation
     fig1, ax1 = plot_autocorrelation(lags, autocorr, 
                                       title=f'Autocorrelation Structure (H={hurst:.3f})')
-    plt.savefig('/mnt/user-data/outputs/markonis_autocorrelation.png', dpi=150, bbox_inches='tight')
+    plt.savefig(os.path.join(output_dir, 'markonis_autocorrelation.png'), dpi=150, bbox_inches='tight')
     print("  Saved: markonis_autocorrelation.png")
     
     # Plot 2: Time series with extreme events (zoom in on 3 years)
@@ -163,7 +172,7 @@ def main():
         ylabel='Evaporation (mm/day)',
         window=window
     )
-    plt.savefig('/mnt/user-data/outputs/markonis_timeseries.png', dpi=150, bbox_inches='tight')
+    plt.savefig(os.path.join(output_dir, 'markonis_timeseries.png'), dpi=150, bbox_inches='tight')
     print("  Saved: markonis_timeseries.png")
     
     # Plot 3: Annual trend in extreme events
@@ -177,7 +186,7 @@ def main():
     ax3.legend()
     ax3.grid(True, alpha=0.3)
     plt.tight_layout()
-    plt.savefig('/mnt/user-data/outputs/markonis_trend.png', dpi=150, bbox_inches='tight')
+    plt.savefig(os.path.join(output_dir, 'markonis_trend.png'), dpi=150, bbox_inches='tight')
     print("  Saved: markonis_trend.png")
     
     # Plot 4: Water cycle comparison
@@ -198,7 +207,7 @@ def main():
     ax4b.grid(True, alpha=0.3, axis='y')
     
     plt.tight_layout()
-    plt.savefig('/mnt/user-data/outputs/markonis_water_cycle.png', dpi=150, bbox_inches='tight')
+    plt.savefig(os.path.join(output_dir, 'markonis_water_cycle.png'), dpi=150, bbox_inches='tight')
     print("  Saved: markonis_water_cycle.png")
     
     print("\n" + "="*70)

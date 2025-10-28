@@ -1,0 +1,15 @@
+LICENSE
+README.md
+setup.py
+extreme_evaporation_events.egg-info/PKG-INFO
+extreme_evaporation_events.egg-info/SOURCES.txt
+extreme_evaporation_events.egg-info/dependency_links.txt
+extreme_evaporation_events.egg-info/requires.txt
+extreme_evaporation_events.egg-info/top_level.txt
+src/__init__.py
+src/contribution_analysis.py
+src/data_processing.py
+src/extreme_detection.py
+src/penman_monteith.py
+src/utils.py
+tests/test_methods.py

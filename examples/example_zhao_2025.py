@@ -11,8 +11,12 @@ This script demonstrates:
 
 import numpy as np
 import matplotlib.pyplot as plt
+import os
 import sys
-sys.path.append('..')
+
+# Get the absolute path to the parent directory
+parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.append(parent_dir)
 
 from src.penman_monteith import calculate_et0
 from src.extreme_detection import (
@@ -37,6 +41,11 @@ def main():
     """
     Main function demonstrating Zhao et al. (2025) methodology.
     """
+    # Create output directory
+    output_dir = os.path.join(os.path.dirname(__file__), 'outputs')
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+
     print("="*70)
     print("Replicating Zhao et al. (2025): Drivers of Extreme ET0")
     print("="*70)
@@ -157,7 +166,7 @@ def main():
         ylabel='ET0 (mm/day)',
         window=window
     )
-    plt.savefig('/mnt/user-data/outputs/zhao_ert_hist_timeseries.png', dpi=150, bbox_inches='tight')
+    plt.savefig(os.path.join(output_dir, 'zhao_ert_hist_timeseries.png'), dpi=150, bbox_inches='tight')
     print("  Saved: zhao_ert_hist_timeseries.png")
     
     # Plot 2: ERT_clim time series
@@ -167,7 +176,7 @@ def main():
         ylabel='ET0 (mm/day)',
         window=window
     )
-    plt.savefig('/mnt/user-data/outputs/zhao_ert_clim_timeseries.png', dpi=150, bbox_inches='tight')
+    plt.savefig(os.path.join(output_dir, 'zhao_ert_clim_timeseries.png'), dpi=150, bbox_inches='tight')
     print("  Saved: zhao_ert_clim_timeseries.png")
     
     # Plot 3: Contribution pie chart (ERT_hist)
@@ -175,7 +184,7 @@ def main():
         contributions_hist,
         title='Meteorological Drivers of Extreme ET0 (ERT_hist)'
     )
-    plt.savefig('/mnt/user-data/outputs/zhao_contributions_hist.png', dpi=150, bbox_inches='tight')
+    plt.savefig(os.path.join(output_dir, 'zhao_contributions_hist.png'), dpi=150, bbox_inches='tight')
     print("  Saved: zhao_contributions_hist.png")
     
     # Plot 4: Contribution pie chart (ERT_clim)
@@ -183,13 +192,13 @@ def main():
         contributions_clim,
         title='Meteorological Drivers of Extreme ET0 (ERT_clim)'
     )
-    plt.savefig('/mnt/user-data/outputs/zhao_contributions_clim.png', dpi=150, bbox_inches='tight')
+    plt.savefig(os.path.join(output_dir, 'zhao_contributions_clim.png'), dpi=150, bbox_inches='tight')
     print("  Saved: zhao_contributions_clim.png")
     
     # Plot 5: Seasonal contributions
     if len(seasonal_contrib) > 0:
         fig5, ax5 = plot_seasonal_contributions(seasonal_contrib)
-        plt.savefig('/mnt/user-data/outputs/zhao_seasonal_contributions.png', dpi=150, bbox_inches='tight')
+        plt.savefig(os.path.join(output_dir, 'zhao_seasonal_contributions.png'), dpi=150, bbox_inches='tight')
         print("  Saved: zhao_seasonal_contributions.png")
     
     # Plot 6: Daily threshold variation (ERT_clim)
@@ -203,7 +212,7 @@ def main():
                   fontsize=14, weight='bold')
     ax6.grid(True, alpha=0.3)
     plt.tight_layout()
-    plt.savefig('/mnt/user-data/outputs/zhao_daily_thresholds.png', dpi=150, bbox_inches='tight')
+    plt.savefig(os.path.join(output_dir, 'zhao_daily_thresholds.png'), dpi=150, bbox_inches='tight')
     print("  Saved: zhao_daily_thresholds.png")
     
     # Plot 7: Comparison of methods
@@ -243,7 +252,7 @@ def main():
     ax7b.grid(True, alpha=0.3, axis='y')
     
     plt.tight_layout()
-    plt.savefig('/mnt/user-data/outputs/zhao_method_comparison.png', dpi=150, bbox_inches='tight')
+    plt.savefig(os.path.join(output_dir, 'zhao_method_comparison.png'), dpi=150, bbox_inches='tight')
     print("  Saved: zhao_method_comparison.png")
     
     print("\n" + "="*70)
