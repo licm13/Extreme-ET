@@ -21,7 +21,8 @@ from src.extreme_detection import (
     detect_extreme_events_hist,
     detect_extreme_events_clim,
     optimal_path_threshold,
-    identify_events_from_mask
+    identify_events_from_mask,
+    detect_compound_extreme_events,
 )
 from src.penman_monteith import (
     calculate_et0,
@@ -30,7 +31,9 @@ from src.penman_monteith import (
 )
 from src.contribution_analysis import (
     calculate_contributions,
-    sensitivity_analysis
+    sensitivity_analysis,
+    dynamic_perturbation_response,
+    compute_perturbation_pathway,
 )
 from src.utils import generate_synthetic_data
 
@@ -110,7 +113,37 @@ def test_extreme_detection():
     assert len(events) == 2, "Should identify 2 events"
     assert events[0]['duration'] == 3, "First event should last 3 days"
     print("  ✓ identify_events_from_mask")
-    
+
+    # Test historical detection with GPD tail model
+    _, threshold_gpd, details_gpd = detect_extreme_events_hist(
+        data, severity=0.01, tail_model='gpd', return_details=True
+    )
+    assert 'threshold_diagnostics' in details_gpd, "GPD details missing"
+    assert details_gpd['threshold_diagnostics']['tail_model'] in {
+        'gpd', 'empirical_fallback', 'empirical'
+    }
+    assert threshold_gpd > 0, "Threshold should be positive"
+    print("  ✓ detect_extreme_events_hist with GPD tail")
+
+    # Test compound multi-scale detection
+    compound_mask, scale_thresholds = detect_compound_extreme_events(
+        data, scales=(5, 15), severity_levels=[0.02, 0.05], aggregator='all'
+    )
+    assert len(compound_mask) == len(data), "Compound mask length mismatch"
+    assert len(scale_thresholds) == 2, "Should provide thresholds per scale"
+
+    compound_mask_w, _, compound_details = detect_compound_extreme_events(
+        data,
+        scales=(5, 15),
+        severity_levels=[0.02, 0.05],
+        aggregator='weighted',
+        return_details=True,
+    )
+    assert len(compound_mask_w) == len(data)
+    assert 'composite_score' in compound_details
+    assert compound_details['aggregator'] == 'weighted'
+    print("  ✓ detect_compound_extreme_events")
+
     print()
 
 
@@ -212,7 +245,26 @@ def test_contribution_analysis():
     assert isinstance(sensitivity, dict), "Should return dictionary"
     assert len(sensitivity) == 4, "Should have 4 sensitivities"
     print("  ✓ sensitivity_analysis")
-    
+
+    dynamic_resp = dynamic_perturbation_response(
+        data['T_mean'], data['T_max'], data['T_min'],
+        data['Rs'], data['u2'], data['ea'],
+        extreme_mask,
+        amplitude_scale=0.1,
+    )
+    assert 'temperature' in dynamic_resp
+    assert isinstance(dynamic_resp['temperature']['phase_responses'], list)
+    print("  ✓ dynamic_perturbation_response")
+
+    pathway = compute_perturbation_pathway(
+        data['T_mean'], data['T_max'], data['T_min'],
+        data['Rs'], data['u2'], data['ea'],
+        extreme_mask=extreme_mask,
+    )
+    assert 'residual_synergy' in pathway
+    assert len(pathway['incremental_changes']) > 0
+    print("  ✓ compute_perturbation_pathway")
+
     print()
 
 

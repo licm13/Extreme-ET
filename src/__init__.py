@@ -151,6 +151,7 @@ __status__ = "Production"
 from .extreme_detection import (
     detect_extreme_events_hist,      # 历史相对阈值法 / Historical threshold
     detect_extreme_events_clim,      # 气候学方法 / Climatological method
+    detect_compound_extreme_events,  # 复合多尺度检测 / Compound multi-scale detection
     optimal_path_threshold,          # 最优路径阈值 / Optimal path threshold
     identify_events_from_mask,       # 事件提取 / Event extraction
     calculate_event_statistics,      # 事件统计 / Event statistics
@@ -164,6 +165,8 @@ from .contribution_analysis import (
     sensitivity_analysis,            # 敏感性分析 / Sensitivity analysis
     analyze_seasonal_contributions,  # 季节分析 / Seasonal analysis
     identify_dominant_driver,        # 主导因子识别 / Dominant driver identification
+    dynamic_perturbation_response,   # 动态扰动响应 / Dynamic perturbation response
+    compute_perturbation_pathway,    # 扰动传播链 / Perturbation pathway solver
 )
 
 # Penman-Monteith ET0 计算模块 / Penman-Monteith ET0 Calculation Module
