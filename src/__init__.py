@@ -122,6 +122,12 @@ Extreme-ET Development Team
 ---------------------------
 - 0.1.0 (2025-01): 初始发布 / Initial release
 - 1.0.0 (2025-10): 代码重构、添加详细注释和文档 / Code refactoring, detailed comments and docs
+- 1.1.0 (2025-10): 添加高级分析模块 / Added advanced analysis modules
+  * 水循环加速分析 / Water cycle acceleration analysis
+  * 非平稳性阈值演化 / Non-stationary threshold evolution
+  * 多变量极端分析 (Copula) / Multivariate extreme analysis (Copula-based)
+  * 空间分析功能 / Spatial analysis capabilities
+  * 事件物理演化分析 / Event physical evolution analysis
 
 联系方式 / Contact:
 -------------------
@@ -134,7 +140,7 @@ Extreme-ET Development Team
 # 版本信息 / Version Information
 # ============================================================================
 
-__version__ = "1.0.0"
+__version__ = "1.1.0"
 __author__ = "Extreme-ET Development Team"
 __license__ = "MIT"
 __maintainer__ = "Extreme-ET Team"
@@ -204,6 +210,75 @@ from .utils import (
 )
 
 # ============================================================================
+# 高级分析模块 / Advanced Analysis Modules (New in v1.1.0)
+# ============================================================================
+
+# 水循环加速分析模块 / Water Cycle Acceleration Analysis Module
+# 基于 Markonis (2025) 的 P-E 和 (P+E)/2 指标
+# Based on Markonis (2025) P-E and (P+E)/2 metrics
+from .water_cycle_analysis import (
+    calculate_water_availability,           # P-E 水分可用性 / Water availability
+    calculate_water_cycle_intensity,        # (P+E)/2 水循环强度 / Water cycle intensity
+    decompose_water_cycle_by_extremes,      # 按极端事件分解 / Decompose by extremes
+    analyze_temporal_changes,               # 时间变化分析 / Temporal change analysis
+    classify_water_cycle_regime,            # 水循环模式分类 / Regime classification
+    analyze_seasonal_water_cycle,           # 季节性分析 / Seasonal analysis
+)
+
+# 非平稳性阈值分析模块 / Non-Stationary Threshold Analysis Module
+# 适应气候变化的动态阈值方法
+# Dynamic threshold methods adapting to climate change
+from .nonstationary_threshold import (
+    calculate_moving_percentile,            # 移动百分位数 / Moving percentile
+    loess_smoothed_threshold,               # LOESS 平滑阈值 / LOESS smoothed threshold
+    detect_trend_and_detrend,               # 趋势检测与去趋势 / Trend detection & detrending
+    adaptive_threshold_by_decade,           # 按年代自适应 / Decade-adaptive threshold
+    separate_forced_variability,            # 分离强迫/自然变率 / Separate forced/natural
+    quantile_regression_threshold,          # 分位数回归阈值 / Quantile regression threshold
+    compare_stationary_vs_nonstationary,    # 平稳性比较 / Stationarity comparison
+)
+
+# 多变量极端分析模块 / Multivariate Extreme Analysis Module
+# 基于 Copula 的复合极端事件分析
+# Copula-based compound extreme event analysis
+from .multivariate_extremes import (
+    empirical_cdf,                          # 经验累积分布 / Empirical CDF
+    transform_to_uniform,                   # 均匀化变换 / Transform to uniform
+    gaussian_copula_parameter,              # 高斯 Copula 参数 / Gaussian copula parameter
+    clayton_copula_parameter,               # Clayton Copula 参数 / Clayton copula parameter
+    gumbel_copula_parameter,                # Gumbel Copula 参数 / Gumbel copula parameter
+    calculate_joint_return_period,          # 联合重现期 / Joint return period
+    identify_compound_extreme_et_precipitation,  # ET-降水复合极端 / ET-P compound extremes
+    calculate_drought_severity_index,       # 干旱严重度指数 / Drought severity index
+    analyze_compound_event_characteristics, # 复合事件特征 / Compound event characteristics
+)
+
+# 空间分析模块 / Spatial Analysis Module
+# 极端事件的空间相干性、传播和插值
+# Spatial coherence, propagation, and interpolation of extreme events
+from .spatial_analysis import (
+    calculate_spatial_correlation,          # 空间相关性 / Spatial correlation
+    detect_event_propagation,               # 事件传播检测 / Event propagation detection
+    ordinary_kriging,                       # 普通克里金插值 / Ordinary kriging
+    calculate_regional_synchrony,           # 区域同步性 / Regional synchrony
+    identify_spatial_clusters,              # 空间聚类识别 / Spatial cluster identification
+    calculate_spatial_extent_metrics,       # 空间范围度量 / Spatial extent metrics
+)
+
+# 事件物理演化分析模块 / Event Physical Evolution Analysis Module
+# 基于 Markonis (2025) 的 onset/termination 分析
+# Based on Markonis (2025) onset/termination analysis
+from .event_evolution import (
+    identify_event_periods,                 # 事件周期识别 / Event period identification
+    analyze_onset_termination_conditions,   # Onset/termination 条件 / Onset/termination conditions
+    calculate_energy_balance_components,    # 能量平衡组分 / Energy balance components
+    analyze_energy_partitioning,            # 能量分配分析 / Energy partitioning analysis
+    identify_event_triggers,                # 事件触发因子 / Event triggers
+    analyze_event_intensity_evolution,      # 事件强度演化 / Event intensity evolution
+    compare_seasonal_event_characteristics, # 季节性事件特征 / Seasonal event characteristics
+)
+
+# ============================================================================
 # 公共 API / Public API
 # ============================================================================
 
@@ -244,6 +319,34 @@ __all__ = [
     "plot_autocorrelation",
     "calculate_event_metrics",
     "summary_statistics",
+
+    # 水循环加速分析 (New in v1.1.0) / Water Cycle Acceleration Analysis
+    "calculate_water_availability",
+    "calculate_water_cycle_intensity",
+    "decompose_water_cycle_by_extremes",
+    "analyze_temporal_changes",
+    "classify_water_cycle_regime",
+    "analyze_seasonal_water_cycle",
+
+    # 非平稳性阈值分析 (New in v1.1.0) / Non-Stationary Threshold Analysis
+    "loess_smoothed_threshold",
+    "detect_trend_and_detrend",
+    "compare_stationary_vs_nonstationary",
+
+    # 多变量极端分析 (New in v1.1.0) / Multivariate Extreme Analysis
+    "calculate_joint_return_period",
+    "identify_compound_extreme_et_precipitation",
+    "calculate_drought_severity_index",
+
+    # 空间分析 (New in v1.1.0) / Spatial Analysis
+    "calculate_spatial_correlation",
+    "detect_event_propagation",
+    "ordinary_kriging",
+
+    # 事件物理演化 (New in v1.1.0) / Event Physical Evolution
+    "analyze_onset_termination_conditions",
+    "analyze_energy_partitioning",
+    "identify_event_triggers",
 ]
 
 # ============================================================================
