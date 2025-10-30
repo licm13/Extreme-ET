@@ -17,16 +17,18 @@ Features demonstrated:
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+import sys
 from pathlib import Path
 
-# Import existing modules
-import sys
-sys.path.insert(0, str(Path(__file__).parent.parent / 'src'))
+# Ensure project root is on sys.path (parent of 'examples' and 'src')
+project_root = Path(__file__).resolve().parent.parent
+if str(project_root) not in sys.path:
+    sys.path.insert(0, str(project_root))
 
-from extreme_detection import detect_extremes_ert_hist, detect_extremes_ert_clim
-from penman_monteith import calculate_et0
-from data_processing import calculate_hurst_exponent
-
+from src.extreme_detection import detect_extreme_events_hist, detect_extreme_events_clim
+from src.penman_monteith import calculate_et0
+from src.data_processing import calculate_hurst_exponent
+from src import water_cycle_analysis
 # Import new advanced modules
 from water_cycle_analysis import (
     decompose_water_cycle_by_extremes,
@@ -56,6 +58,38 @@ from event_evolution import (
     analyze_event_intensity_evolution
 )
 
+from src.extreme_detection import detect_extreme_events_hist, detect_extreme_events_clim
+from src.penman_monteith import calculate_et0
+from src.data_processing import calculate_hurst_exponent
+
+# Import new advanced modules from the 'src' package
+from src.water_cycle_analysis import (
+    decompose_water_cycle_by_extremes,
+    analyze_temporal_changes,
+    classify_water_cycle_regime,
+    analyze_seasonal_water_cycle
+)
+from src.nonstationary_threshold import (
+    loess_smoothed_threshold,
+    detect_trend_and_detrend,
+    compare_stationary_vs_nonstationary
+)
+from src.multivariate_extremes import (
+    identify_compound_extreme_et_precipitation,
+    calculate_joint_return_period,
+    calculate_drought_severity_index
+)
+from src.spatial_analysis import (
+    calculate_spatial_correlation,
+    detect_event_propagation,
+    ordinary_kriging
+)
+from src.event_evolution import (
+    analyze_onset_termination_conditions,
+    analyze_energy_partitioning,
+    identify_event_triggers,
+    analyze_event_intensity_evolution
+)
 
 def generate_synthetic_data_with_trends(n_years=50, n_locations=20):
     """
@@ -127,7 +161,7 @@ def demo_water_cycle_analysis(data):
     print("="*80)
 
     # Detect extremes
-    extremes_hist = detect_extremes_ert_hist(data['et0'], severity=0.005)
+    extremes_hist = detect_extreme_events_hist(data['et0'], severity=0.005)
 
     # Decompose water cycle
     decomposition = decompose_water_cycle_by_extremes(
@@ -344,7 +378,7 @@ def demo_event_evolution(data):
     print("="*80)
 
     # Detect extremes
-    extremes = detect_extremes_ert_hist(data['et0'], severity=0.01)
+    extremes = detect_extreme_events_hist(data['et0'], severity=0.01)
 
     # Meteorological data for analysis
     met_data = {

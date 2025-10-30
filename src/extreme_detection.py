@@ -31,9 +31,9 @@ evapotranspiration across the contiguous United States. Water Resources Research
 
 import numpy as np
 import pandas as pd
-from scipy import stats
 from typing import Tuple, List, Dict, Optional, Union, Iterable
-from .data_processing import moving_average
+from scipy import stats
+from src.data_processing import moving_average
 
 
 # ============================================================================
@@ -634,7 +634,7 @@ def detect_extreme_events_clim(
     # 这确保了全年事件发生率接近目标严重性
     # This ensures year-round occurrence rate matches target severity
     thresholds = optimal_path_threshold(
-        smoothed_data,
+        smoothed_data, # type: ignore
         target_occurrence_rate=severity,
         min_duration=min_duration
     )
@@ -646,7 +646,7 @@ def detect_extreme_events_clim(
     # 应用最小持续时间标准识别极端事件
     # Identify extreme events applying minimum duration criterion
     extreme_mask = identify_climatological_extremes(
-        smoothed_data,
+        smoothed_data, # type: ignore
         thresholds,
         min_duration=min_duration
     )
@@ -815,17 +815,17 @@ def detect_compound_extreme_events(
     for window, severity in zip(windows, severity_list):
         smoothed = moving_average(data, window=window)
         threshold, diagnostics = _estimate_tail_threshold(
-            smoothed,
+            smoothed, # type: ignore
             severity=severity,
             model=tail_model_normalized,
             base_quantile=gpd_base_quantile,
         )
 
-        mask = smoothed > threshold
+        mask = smoothed > threshold # type: ignore
         scale_thresholds[window] = float(threshold)
         scale_diagnostics[window] = diagnostics
         scale_masks[window] = mask
-        smoothed_series[window] = smoothed
+        smoothed_series[window] = smoothed # type: ignore
 
     masks = list(scale_masks.values())
     if aggregator_normalized == 'all':
@@ -1054,10 +1054,10 @@ def optimal_path_threshold(
             f"Warning: OPT method did not fully converge after {max_iterations} iterations\n"
             f"目标发生率: {target_occurrence_rate:.4f}\n"
             f"Target rate: {target_occurrence_rate:.4f}\n"
-            f"实际发生率: {current_rate:.4f}\n"
-            f"Actual rate: {current_rate:.4f}\n"
-            f"差异: {rate_diff:.4f}\n"
-            f"Difference: {rate_diff:.4f}"
+            f"实际发生率: {current_rate:.4f}\n" # type: ignore
+            f"Actual rate: {current_rate:.4f}\n" # type: ignore
+            f"差异: {rate_diff:.4f}\n" # type: ignore
+            f"Difference: {rate_diff:.4f}" # type: ignore
         )
 
     return thresholds
