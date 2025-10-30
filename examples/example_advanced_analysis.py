@@ -16,53 +16,13 @@ Features demonstrated:
 
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
-import sys
-from pathlib import Path
 
-# Ensure project root is on sys.path (parent of 'examples' and 'src')
-project_root = Path(__file__).resolve().parent.parent
-if str(project_root) not in sys.path:
-    sys.path.insert(0, str(project_root))
-
-from src.extreme_detection import detect_extreme_events_hist, detect_extreme_events_clim
-from src.penman_monteith import calculate_et0
+from src.extreme_detection import detect_extreme_events_hist
+from src.penman_monteith import (
+    calculate_et0,
+    calculate_vapor_pressure_from_vpd,
+)
 from src.data_processing import calculate_hurst_exponent
-from src import water_cycle_analysis
-# Import new advanced modules
-from water_cycle_analysis import (
-    decompose_water_cycle_by_extremes,
-    analyze_temporal_changes,
-    classify_water_cycle_regime,
-    analyze_seasonal_water_cycle
-)
-from nonstationary_threshold import (
-    loess_smoothed_threshold,
-    detect_trend_and_detrend,
-    compare_stationary_vs_nonstationary
-)
-from multivariate_extremes import (
-    identify_compound_extreme_et_precipitation,
-    calculate_joint_return_period,
-    calculate_drought_severity_index
-)
-from spatial_analysis import (
-    calculate_spatial_correlation,
-    detect_event_propagation,
-    ordinary_kriging
-)
-from event_evolution import (
-    analyze_onset_termination_conditions,
-    analyze_energy_partitioning,
-    identify_event_triggers,
-    analyze_event_intensity_evolution
-)
-
-from src.extreme_detection import detect_extreme_events_hist, detect_extreme_events_clim
-from src.penman_monteith import calculate_et0
-from src.data_processing import calculate_hurst_exponent
-
-# Import new advanced modules from the 'src' package
 from src.water_cycle_analysis import (
     decompose_water_cycle_by_extremes,
     analyze_temporal_changes,
@@ -70,13 +30,11 @@ from src.water_cycle_analysis import (
     analyze_seasonal_water_cycle
 )
 from src.nonstationary_threshold import (
-    loess_smoothed_threshold,
     detect_trend_and_detrend,
     compare_stationary_vs_nonstationary
 )
 from src.multivariate_extremes import (
     identify_compound_extreme_et_precipitation,
-    calculate_joint_return_period,
     calculate_drought_severity_index
 )
 from src.spatial_analysis import (
@@ -116,16 +74,17 @@ def generate_synthetic_data_with_trends(n_years=50, n_locations=20):
     vpd = 0.5 + 0.1 * temperature + np.random.randn(n_days) * 0.2
     vpd = np.clip(vpd, 0.1, 5.0)
 
-    # Calculate ET0
+    # Convert VPD to actual vapor pressure and calculate ET0
+    ea = calculate_vapor_pressure_from_vpd(vpd, temperature)
     et0 = calculate_et0(
-        temperature_mean=temperature,
-        temperature_max=temperature + 3,
-        temperature_min=temperature - 3,
-        solar_radiation=radiation,
-        wind_speed=wind_speed,
-        vpd=vpd,
-        elevation=100,
-        latitude=40
+        temperature,
+        temperature + 3,
+        temperature - 3,
+        radiation,
+        wind_speed,
+        ea,
+        z=100,
+        latitude=40,
     )
 
     # Generate precipitation (decreasing trend to simulate aridification)
@@ -161,15 +120,20 @@ def demo_water_cycle_analysis(data):
     print("="*80)
 
     # Detect extremes
-    extremes_hist = detect_extreme_events_hist(data['et0'], severity=0.005)
+    extreme_mask_hist, threshold_hist, details_hist = detect_extreme_events_hist(
+        data['et0'], severity=0.005, return_details=True
+    )
 
     # Decompose water cycle
     decomposition = decompose_water_cycle_by_extremes(
         data['precipitation'],
         data['et0'],
-        extremes_hist['extreme_mask']
+        extreme_mask_hist
     )
 
+    print(f"\nThreshold (0.5% severity): {threshold_hist:.2f} mm/day")
+    print(f"Extreme days detected: {details_hist['n_extreme_days']} "
+          f"({details_hist['occurrence_rate']*100:.2f}% of days)")
     print("\nWater Cycle Metrics:")
     print("-" * 40)
     for condition in ['all_days', 'extreme_days', 'normal_days']:
@@ -185,7 +149,7 @@ def demo_water_cycle_analysis(data):
     temporal_changes = analyze_temporal_changes(
         data['precipitation'],
         data['et0'],
-        extremes_hist['extreme_mask'],
+        extreme_mask_hist,
         split_idx
     )
 
@@ -208,7 +172,7 @@ def demo_water_cycle_analysis(data):
         data['dates'],
         data['precipitation'],
         data['et0'],
-        extremes_hist['extreme_mask']
+        extreme_mask_hist
     )
 
     print("\n\nSeasonal Water Cycle Analysis:")
@@ -216,7 +180,13 @@ def demo_water_cycle_analysis(data):
     print(seasonal_stats[['season_name', 'water_availability_mean',
                           'water_intensity_mean', 'extreme_frequency']])
 
-    return decomposition, seasonal_stats
+    return {
+        'mask': extreme_mask_hist,
+        'threshold': threshold_hist,
+        'details': details_hist,
+        'decomposition': decomposition,
+        'seasonal_stats': seasonal_stats,
+    }
 
 
 def demo_nonstationary_analysis(data):
@@ -378,7 +348,9 @@ def demo_event_evolution(data):
     print("="*80)
 
     # Detect extremes
-    extremes = detect_extreme_events_hist(data['et0'], severity=0.01)
+    extreme_mask, _, details = detect_extreme_events_hist(
+        data['et0'], severity=0.01, return_details=True
+    )
 
     # Meteorological data for analysis
     met_data = {
@@ -392,7 +364,7 @@ def demo_event_evolution(data):
     conditions = analyze_onset_termination_conditions(
         data['et0'],
         met_data,
-        extremes['extreme_mask'],
+        extreme_mask,
         window_days=5
     )
 
@@ -412,7 +384,7 @@ def demo_event_evolution(data):
             data['temperature'],
             data['radiation'],
             data['et0'],
-            extremes['extreme_mask']
+            extreme_mask
         )
 
         print(f"\n\nEnergy Partitioning:")
@@ -425,7 +397,7 @@ def demo_event_evolution(data):
             print(f"  Latent heat fraction: {energy[condition]['latent_heat_fraction']:.2%}")
 
         # Event triggers
-        triggers = identify_event_triggers(met_data, extremes['extreme_mask'], lookback_days=7)
+        triggers = identify_event_triggers(met_data, extreme_mask, lookback_days=7)
 
         if 'error' not in triggers:
             print(f"\n\nEvent Triggers (7-day lookback):")
@@ -436,7 +408,7 @@ def demo_event_evolution(data):
                           f"(consistency: {info['consistency']:.0%})")
 
         # Event intensity evolution
-        evolutions = analyze_event_intensity_evolution(data['et0'], extremes['extreme_mask'])
+        evolutions = analyze_event_intensity_evolution(data['et0'], extreme_mask)
 
         if len(evolutions) > 0:
             print(f"\n\nEvent Intensity Evolution:")
@@ -450,7 +422,13 @@ def demo_event_evolution(data):
             print(f"Mean peak intensity: {mean_peak:.2f} mm/day")
             print(f"Mean cumulative ET per event: {mean_cumulative:.1f} mm")
 
-    return conditions, evolutions if 'error' not in conditions else (None, None)
+    summary = {
+        'mask': extreme_mask,
+        'details': details,
+        'conditions': conditions,
+        'evolutions': evolutions if 'error' not in conditions else [],
+    }
+    return summary
 
 
 def main():
