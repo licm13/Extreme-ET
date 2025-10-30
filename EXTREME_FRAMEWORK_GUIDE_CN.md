@@ -7,6 +7,85 @@
 3. **Extreme 的归因路径？**
 4. **PET（ETo）的 Extreme 如何量化？**
 
+随后给出逐模块、逐函数的功能与数学原理说明，便于在写作或扩展代码时快速定位所需能力。为回应“情景复杂度不足、研究思路未完全体现”的反馈，文档首先新增“研究情景蓝图”，把四大框架与五个文章构想逐一映射到仓库能力，帮助你直接把中国—全球、事件—趋势、能量—水分耦合等复杂分析落到代码上。
+
+---
+
+## 研究情景蓝图：对齐四大框架
+
+以下内容直接对应你的研究提纲（产品/定义、China vs. Global、归因、PET），并在每一点下嵌入仓库中的关键模块、分析路径与可选的复杂情景，确保分析场景足够“丰富 + 可执行”。
+
+### 1. 哪些产品能抓 Extreme？怎么定义？
+
+**数据产品组合（多尺度、跨来源）**
+
+- **极端 ET（总蒸散）**：
+  - *再分析*：ERA5-Land 日度潜热通量 → `calculate_et0`（必要时转换为 ETo） + `detect_extreme_events_hist`。
+  - *卫星融合*：GLEAM（含蒸腾/土壤蒸发分量） → `analyze_event_intensity_evolution` 检测事件内 T/E_s 转换。
+  - *塔尺度外推*：FLUXCOM/FLUXCOM-X → `calculate_spatial_correlation`、`ordinary_kriging` 扩展到区域网格。
+- **ETo/PET 产品**：利用 `calculate_et0`（Penman–Monteith）统一驱动；`calculate_vapor_pressure_from_vpd` 支持 VPD、RH、露点等不同湿度口径；`adjust_wind_speed` 解决风速高度差异。
+- **驱动场与水分变量**：VPD/辐射/风速/土壤湿度/降水配合 `identify_event_triggers`、`decompose_water_cycle_by_extremes` 构建“高能量输入 → 水分响应”链条。
+
+**极端定义策略（多路并跑保证稳健性）**
+
+1. **阈值/百分位法**：`detect_extreme_events_hist`、`identify_climatological_extremes`；搭配 `standardize_to_zscore` 去季节化。
+2. **事件法（ExEvEs）**：`identify_events_from_mask`、`calculate_event_statistics`、`analyze_onset_termination_conditions`；刻画持续时间、峰值、严重度，并做 ±10 天物理合成。
+3. **块最大值法（ETx7d）**：`moving_average` 构建 7 日滑动窗口，结合 `detect_trend_and_detrend` 检验趋势或受迫信号。
+
+> **复杂情景示例**：构建“高 ET + 低 P”复合极端，使用 `identify_compound_extreme_et_precipitation` + `calculate_joint_return_period`（Copula 返回期），并通过 `analyze_energy_partitioning` 给出能量分配差异。
+
+### 2. China 的 Extreme，全球的 Extreme
+
+**中国框架（典型区域分层）**
+
+- 区域：华北/东北（冷干）、华南/东南（湿热）、西北（干旱大风）、青藏（高海拔强辐射）。
+- 流程：
+  1. `deseasonalize_data` → `detect_extreme_events_clim`：季节统一阈值；
+  2. `analyze_seasonal_water_cycle`、`compare_seasonal_event_characteristics`：季节差异与极端频度；
+  3. `identify_event_triggers` + `analyze_energy_partitioning`：主控因子与能量闭合；
+  4. `decompose_water_cycle_by_extremes` + `analyze_temporal_changes`：水资源调度含义、闪旱前兆。
+
+**全球拓展（跨区域复制）**
+
+- 在中国流程基础上补充：
+  - `calculate_spatial_correlation`、`detect_event_propagation`：识别区域簇（欧洲、印度、西亚、澳洲、美西等）。
+  - `compare_stationary_vs_nonstationary`：比较不同气候带的阈值漂移。
+  - `separate_forced_variability`：配合 CMIP6 多成员数据进行检测与归因。
+
+> **复杂情景示例**：以中国框架为模板复制到“亚洲季风带 vs. 北美干旱带”，用 `classify_water_cycle_regime` 对比 P−E 调制作用，并评估传播速度差异 (`detect_event_propagation`)。
+
+### 3. Extreme 的归因
+
+- **Penman–Monteith 驱动贡献**：`calculate_contributions` + `identify_dominant_driver`；可按季节 (`analyze_seasonal_contributions`) 与严重度 (`severity` 参数) 分组。
+- **事件复合诊断**：`analyze_onset_termination_conditions`、`identify_event_triggers`、`calculate_energy_balance_components` → ±10 天合成，追踪“高 VPD + 高辐射 → 极端 ET → 土壤湿度骤降”。
+- **检测与归因 (D&A)**：
+  - `detect_trend_and_detrend`、`quantile_regression_threshold`：去趋势、非平稳阈值；
+  - `separate_forced_variability`：与外部岭回归/正则化框架结合，区分受迫信号与内部变率。
+- **闪旱耦合**：`calculate_drought_severity_index` + `decompose_water_cycle_by_extremes` → 极端 ET 与闪旱指标联动；`analyze_temporal_changes` 量化发生率变化。
+
+> **复杂情景示例**：比较 1980–2000 vs. 2001–2023 两期的极端 ET 对水循环强度贡献（`analyze_temporal_changes`），并用 `classify_water_cycle_regime` 标记加速干化/增湿，再检查 `identify_event_triggers` 输出的 VPD 异常一致性。
+
+### 4. PET（ETo）的 Extreme
+
+- **主控因子区域差异**：`calculate_contributions` 输出 RC 值，`identify_dominant_driver` 生成主导因子图，`dynamic_perturbation_response` 显示严重度/时标对敏感度的影响。
+- **湿度口径与数据不确定性**：`calculate_vapor_pressure_from_vpd` 支持 RH/VPD 互换；`calculate_net_radiation`、`adjust_wind_speed` 统一辐射和风速口径。
+- **业务指标**：`analyze_event_intensity_evolution`（单事件耗水量） + `decompose_water_cycle_by_extremes`（水资源缺口） + `calculate_drought_severity_index`（闪旱风险）。
+
+> **复杂情景示例**：多数据集（台站、ERA5-Land、GLEAM 驱动）并行运行贡献分析，借助 `classify_water_cycle_regime` 标注水资源压力，并在 `calculate_joint_return_period` 中引入“高 ETo + 高 VPD”复合事件。
+
+---
+
+## 五篇“小而美”文章的代码落地路线
+
+| 文章 | 关键科学问题 | 数据与方法 | 仓库功能映射 | 风险控制 |
+|------|---------------|------------|---------------|-----------|
+| **A. 中国极端蒸散事件（ExEvEs）** | 区域/季节差异、事件前后能量-水分演化 | ERA5-Land、GLEAM；`standardize_to_zscore` → `detect_extreme_events_clim` → `identify_events_from_mask`；事件合成 (`analyze_onset_termination_conditions`)、能量分配 (`analyze_energy_partitioning`) | `calculate_event_statistics` 输出持续/强度，`analyze_event_intensity_evolution` 评估累积耗水 | 多阈值对比（`detect_extreme_events_hist` vs. `detect_compound_extreme_events`），产品交叉验证 |
+| **B. 中国极端 ETo 主控因子** | 温度/辐射/湿度/风贡献、严重度与时标依赖 | 台站/CMADA/ERA5-Land；`calculate_et0` → `calculate_contributions` → `analyze_seasonal_contributions`; 不确定性分解通过多驱动组合 | `identify_dominant_driver`、`dynamic_perturbation_response`、`compute_perturbation_pathway` | 湿度口径差异：`calculate_vapor_pressure_from_vpd`；多数据集结果对比 |
+| **C. 东亚极端 ETx7d 受迫信号** | 1980–2023 趋势是否超内部变率、与 VPD/闪旱关系 | ERA5-Land、GLEAM、CMIP6；`moving_average` 生成 ETx7d → `detect_trend_and_detrend`、`quantile_regression_threshold`；`analyze_temporal_changes` + `calculate_drought_severity_index` | `compare_stationary_vs_nonstationary`、`separate_forced_variability`；配合外部岭回归实现强迫提取 | 模式偏差：使用 `standardize_to_zscore` 统一气候态 |
+| **D. 极端 ET → 闪旱触发链** | 高 ET 是否导致土壤湿度 1–2 周内骤降 | ERA5-Land、GLEAM、台站土壤湿度；`identify_events_from_mask` → `analyze_event_intensity_evolution` → `identify_event_triggers`；`decompose_water_cycle_by_extremes` 检测 P−E 响应 | `analyze_onset_termination_conditions`（±10 天合成）、`calculate_drought_severity_index`（闪旱指标） | 土壤湿度噪声：`moving_average` 平滑，多数据源互验 |
+| **E. 极端下 T/ET vs. E_s/ET 主导权衡** | 极端期间植物/土壤蒸发贡献是否转变 | GLEAM 组分、FLUXCOM-X、SIF/UET 案例；`identify_events_from_mask` → 对 T、E_s 调用 `calculate_event_statistics`；`analyze_energy_partitioning` 评估 Bowen 比；`calculate_spatial_correlation` 探索土地覆被差异 | `analyze_seasonal_water_cycle` 按土地覆被/季节分组 | 组分不确定性：多产品交叉，必要时引入塔站校正 |
+
+上表可视为“输入数据 → 调用函数 → 输出图件”的工作流清单；结合 `examples/example_advanced_analysis.py` 中的综合示例，即可批量复用到中国与全球的多情景分析。
 随后给出逐模块、逐函数的功能与数学原理说明，便于在写作或扩展代码时快速定位所需能力。
 
 ---
