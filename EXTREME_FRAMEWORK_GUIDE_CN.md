@@ -86,6 +86,7 @@
 | **E. 极端下 T/ET vs. E_s/ET 主导权衡** | 极端期间植物/土壤蒸发贡献是否转变 | GLEAM 组分、FLUXCOM-X、SIF/UET 案例；`identify_events_from_mask` → 对 T、E_s 调用 `calculate_event_statistics`；`analyze_energy_partitioning` 评估 Bowen 比；`calculate_spatial_correlation` 探索土地覆被差异 | `analyze_seasonal_water_cycle` 按土地覆被/季节分组 | 组分不确定性：多产品交叉，必要时引入塔站校正 |
 
 上表可视为“输入数据 → 调用函数 → 输出图件”的工作流清单；结合 `examples/example_advanced_analysis.py` 中的综合示例，即可批量复用到中国与全球的多情景分析。
+随后给出逐模块、逐函数的功能与数学原理说明，便于在写作或扩展代码时快速定位所需能力。
 
 ---
 
