@@ -33,7 +33,12 @@ import numpy as np
 import pandas as pd
 from typing import Tuple, List, Dict, Optional, Union, Iterable
 from scipy import stats
-from src.data_processing import moving_average
+try:
+    # Prefer package-relative import when imported as src.extreme_detection
+    from .data_processing import moving_average
+except Exception:
+    # Fallback if imported without package context
+    from src.data_processing import moving_average
 
 
 # ============================================================================

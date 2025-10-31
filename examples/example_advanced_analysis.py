@@ -14,6 +14,13 @@ Features demonstrated:
 5. Event physical evolution (onset/termination analysis)
 """
 
+import os
+import sys
+# Ensure project root (parent of 'examples' and 'src') is on sys.path
+project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
+
 import numpy as np
 import pandas as pd
 
