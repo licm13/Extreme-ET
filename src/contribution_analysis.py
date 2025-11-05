@@ -185,7 +185,7 @@ def analyze_seasonal_contributions(T_mean, T_max, T_min, Rs, u2, ea,
     seasonal_contributions : dict
         Contributions for each season
     """
-    n = len(T_mean)
+    n_days = len(T_mean)
     
     if seasons is None:
         seasons = {
@@ -196,7 +196,7 @@ def analyze_seasonal_contributions(T_mean, T_max, T_min, Rs, u2, ea,
         }
     
     # Determine month for each day (approximate)
-    doy = np.arange(n) % 365
+    doy = np.arange(n_days) % 365
     month = (doy / 30.4).astype(int) + 1
     month = np.clip(month, 1, 12)
     
@@ -264,14 +264,14 @@ def dynamic_perturbation_response(
     ea = np.asarray(ea, dtype=float)
     extreme_mask = np.asarray(extreme_mask, dtype=bool)
 
-    n = T_mean.size
-    if n == 0:
+    n_days = T_mean.size
+    if n_days == 0:
         raise ValueError("输入序列为空 / Input arrays must be non-empty")
 
     if not extreme_mask.any():
-        extreme_mask = np.ones(n, dtype=bool)
+        extreme_mask = np.ones(n_days, dtype=bool)
 
-    days = np.arange(n)
+    days = np.arange(n_days)
     base_et0 = calculate_et0(T_mean, T_max, T_min, Rs, u2, ea, z, latitude, doy)
 
     phases = np.linspace(0, 2 * np.pi, n_phase_samples, endpoint=False)
@@ -355,15 +355,15 @@ def compute_perturbation_pathway(
     u2 = np.asarray(u2, dtype=float)
     ea = np.asarray(ea, dtype=float)
 
-    n = T_mean.size
-    if n == 0:
+    n_days = T_mean.size
+    if n_days == 0:
         raise ValueError("输入序列为空 / Input arrays must be non-empty")
 
     if extreme_mask is None:
-        mask = np.ones(n, dtype=bool)
+        mask = np.ones(n_days, dtype=bool)
     else:
         mask = np.asarray(extreme_mask, dtype=bool)
-        if mask.size != n:
+        if mask.size != n_days:
             raise ValueError("extreme_mask 长度必须与强迫时间序列一致")
 
     if perturbations is None:

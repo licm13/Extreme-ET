@@ -1233,15 +1233,15 @@ def identify_events_from_mask(mask: Union[np.ndarray, List]) -> List[Dict]:
 
     # 扫描掩码以识别事件 (Scan mask to identify events)
     i = 0
-    n = len(mask)
+    n_days = len(mask)
 
-    while i < n:
+    while i < n_days:
         if mask[i]:
             # 事件开始 (Event starts)
             start = i
 
             # 向前扫描直到事件结束 (Scan forward until event ends)
-            while i < n and mask[i]:
+            while i < n_days and mask[i]:
                 i += 1
 
             # 记录事件 (Record event)
