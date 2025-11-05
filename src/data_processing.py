@@ -93,12 +93,23 @@ def calculate_hurst_exponent(data, max_lag=10):
     >>> print(f"Hurst exponent: {H:.3f}")
     """
     data = np.asarray(data)
-    n = len(data)
+    n_samples = len(data)
+    
+    # Calculate autocorrelation for different lags using vectorized operations
+    lags = np.arange(1, min(max_lag + 1, n_samples // 4))
+    
+    # Pre-compute mean and standard deviation to avoid repeated calculations
+    data_mean = np.mean(data)
+    data_std = np.std(data)
+    
+    if data_std == 0:
+        return 0.5
     
     # Calculate autocorrelation for different lags
-    lags = np.arange(1, min(max_lag + 1, n // 4))
-    autocorr = np.array([np.corrcoef(data[:-lag], data[lag:])[0, 1] 
-                         for lag in lags])
+    autocorr = np.zeros(len(lags))
+    for i, lag in enumerate(lags):
+        # Use Pearson correlation formula directly for efficiency
+        autocorr[i] = np.corrcoef(data[:-lag], data[lag:])[0, 1]
     
     # Remove NaN values
     valid_mask = ~np.isnan(autocorr)
@@ -179,9 +190,9 @@ def calculate_autocorrelation(data, max_lag=10):
     >>> lags, acf = calculate_autocorrelation(data, max_lag=10)
     """
     data = np.asarray(data)
-    n = len(data)
+    n_samples = len(data)
     
-    lags = np.arange(0, min(max_lag + 1, n // 2))
+    lags = np.arange(0, min(max_lag + 1, n_samples // 2))
     autocorr = np.zeros(len(lags))
     
     for i, lag in enumerate(lags):
@@ -191,6 +202,71 @@ def calculate_autocorrelation(data, max_lag=10):
             autocorr[i] = np.corrcoef(data[:-lag], data[lag:])[0, 1]
     
     return lags, autocorr
+
+
+def calculate_climatological_means(*arrays, days_per_year=365):
+    """
+    Calculate climatological daily means for one or more time series.
+    
+    This helper function efficiently computes the mean value for each calendar 
+    day across all years in the dataset. It's optimized to process 
+    multiple arrays simultaneously, avoiding redundant day_mask calculations.
+    
+    Parameters
+    ----------
+    *arrays : array-like
+        One or more time series arrays of the same length (daily resolution).
+        Each array should contain at least one full year of data.
+    days_per_year : int, default=365
+        Number of days in a year (365 for non-leap years, 366 for leap years).
+        Use 365 for most applications as February 29 will be treated as March 1.
+    
+    Returns
+    -------
+    climatological_means : np.ndarray or tuple of np.ndarray
+        Climatological means for each input array, broadcast to the original 
+        data length. If one array is provided, returns a single array. If 
+        multiple arrays are provided, returns a tuple of arrays.
+    
+    Examples
+    --------
+    >>> # Single array
+    >>> data = np.random.randn(365 * 10)
+    >>> clim = calculate_climatological_means(data)
+    
+    >>> # Multiple arrays
+    >>> temp = np.random.randn(365 * 10)
+    >>> precip = np.random.randn(365 * 10)
+    >>> temp_clim, precip_clim = calculate_climatological_means(temp, precip)
+    
+    Notes
+    -----
+    This function is more efficient than computing climatological means 
+    separately for each variable, as it reuses the day_mask computation.
+    """
+    if not arrays:
+        raise ValueError("At least one array must be provided")
+    
+    # Convert all inputs to arrays and validate they have the same length
+    arrays = [np.asarray(arr, dtype=float) for arr in arrays]
+    n_days = len(arrays[0])
+    
+    if not all(len(arr) == n_days for arr in arrays):
+        raise ValueError("All input arrays must have the same length")
+    
+    # Pre-allocate output arrays
+    climatological_means = [np.zeros(n_days) for _ in arrays]
+    
+    # Compute day masks once and reuse for all arrays
+    for day in range(days_per_year):
+        day_mask = (np.arange(n_days) % days_per_year) == day
+        for i, arr in enumerate(arrays):
+            climatological_means[i][day_mask] = np.mean(arr[day_mask])
+    
+    # Return single array or tuple based on input
+    if len(arrays) == 1:
+        return climatological_means[0]
+    return tuple(climatological_means)
 
 
 def deseasonalize_data(data, method='difference'):
@@ -212,16 +288,16 @@ def deseasonalize_data(data, method='difference'):
         Seasonal component
     """
     data = np.asarray(data)
-    n = len(data)
+    n_days = len(data)
     
     # Calculate seasonal component (365-day period)
     seasonal = np.zeros(365)
     for day in range(365):
-        day_mask = np.arange(n) % 365 == day
+        day_mask = np.arange(n_days) % 365 == day
         seasonal[day] = np.mean(data[day_mask])
     
     # Repeat seasonal component to match data length
-    seasonal_full = np.tile(seasonal, n // 365 + 1)[:n]
+    seasonal_full = np.tile(seasonal, n_days // 365 + 1)[:n_days]
     
     if method == 'difference':
         deseasonalized = data - seasonal_full

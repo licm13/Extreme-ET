@@ -400,7 +400,7 @@ def detect_extreme_events_hist(
     # 阈值计算 (Threshold Calculation)
     # ========================================================================
 
-    n = len(data)
+    n_days = len(data)
 
     # 计算上尾阈值，可选择经验分位数或 GPD 外推
     # Estimate the tail threshold using empirical quantiles or a GPD fit
@@ -436,7 +436,7 @@ def detect_extreme_events_hist(
     n_extreme_days = np.sum(extreme_mask)
 
     # 计算实际发生率 (Calculate actual occurrence rate)
-    occurrence_rate = n_extreme_days / n
+    occurrence_rate = n_extreme_days / n_days
 
     # 识别连续极端事件 (Identify continuous events)
     # 连续的极端日被视为一个事件
@@ -454,8 +454,8 @@ def detect_extreme_events_hist(
         'events': events,
         'severity_level': severity,
         'method': 'ERT_hist',
-        'data_length_days': n,
-        'data_length_years': n / DAYS_PER_YEAR,
+        'data_length_days': n_days,
+        'data_length_years': n_days / DAYS_PER_YEAR,
     }
 
     return extreme_mask, threshold, details
@@ -595,15 +595,15 @@ def detect_extreme_events_clim(
     except (ValueError, TypeError) as e:
         raise TypeError(f"Cannot convert data to numeric array: {e}")
 
-    n = len(data)
+    n_days = len(data)
 
     # 验证数据长度 (Validate data length)
-    if n < 2 * DAYS_PER_YEAR:
+    if n_days < 2 * DAYS_PER_YEAR:
         raise ValueError(
             f"ERT_clim 方法需要至少 2 年数据以获得可靠的气候学统计\n"
             f"ERT_clim method requires at least 2 years of data for reliable climatology\n"
-            f"当前数据: {n} 天 ({n/DAYS_PER_YEAR:.1f} 年)\n"
-            f"Current data: {n} days ({n/DAYS_PER_YEAR:.1f} years)"
+            f"当前数据: {n_days} 天 ({n_days/DAYS_PER_YEAR:.1f} 年)\n"
+            f"Current data: {n_days} days ({n_days/DAYS_PER_YEAR:.1f} years)"
         )
 
     # 验证参数范围 (Validate parameter ranges)
@@ -681,15 +681,15 @@ def detect_extreme_events_clim(
         'threshold_min': float(np.min(thresholds)),
         'threshold_max': float(np.max(thresholds)),
         'n_extreme_days': int(np.sum(extreme_mask)),
-        'occurrence_rate': float(np.sum(extreme_mask) / n),
+        'occurrence_rate': float(np.sum(extreme_mask) / n_days),
         'n_events': len(events),
         'events': events_with_stats,
         'severity_level': severity,
         'min_duration': min_duration,
         'window': window,
         'method': 'ERT_clim',
-        'data_length_days': n,
-        'data_length_years': n / DAYS_PER_YEAR,
+        'data_length_days': n_days,
+        'data_length_years': n_days / DAYS_PER_YEAR,
     }
 
     return extreme_mask, thresholds, details
@@ -762,8 +762,8 @@ def detect_compound_extreme_events(
     if np.any(np.isnan(data)):
         raise ValueError("输入数据包含 NaN，请先清洗 / Input data contains NaN values")
 
-    n = data.size
-    if n < DAYS_PER_YEAR:
+    n_days = data.size
+    if n_days < DAYS_PER_YEAR:
         raise ValueError("复合检测建议至少使用一年数据 / At least one year of data is recommended")
 
     windows = [int(w) for w in scales]
@@ -782,8 +782,8 @@ def detect_compound_extreme_events(
                 "severity_levels must match number of scales or be a single value"
             )
 
-    for sev in severity_list:
-        if not 0 < sev < 1:
+    for severity_value in severity_list:
+        if not 0 < severity_value < 1:
             raise ValueError("severity_levels 中的值必须位于 (0,1) 范围内")
 
     aggregator_normalized = aggregator.lower()
@@ -840,13 +840,13 @@ def detect_compound_extreme_events(
         compound_mask = np.logical_or.reduce(masks)
         composite_score = None
     else:
-        composite_score = np.zeros(n, dtype=float)
+        composite_score = np.zeros(n_days, dtype=float)
         for weight, window in zip(weight_array, windows):
             smoothed = smoothed_series[window]
             threshold = scale_thresholds[window]
-            denom = abs(threshold) + 1e-9
+            threshold_denominator = abs(threshold) + 1e-9
             excess = np.clip(smoothed - threshold, a_min=0.0, a_max=None)
-            composite_score += weight * (excess / denom)
+            composite_score += weight * (excess / threshold_denominator)
         compound_mask = composite_score > 0
 
     if not return_details:
@@ -969,12 +969,12 @@ def optimal_path_threshold(
     # ========================================================================
 
     data = np.asarray(data, dtype=float)
-    n = len(data)
+    n_days = len(data)
 
-    if n < DAYS_PER_YEAR:
+    if n_days < DAYS_PER_YEAR:
         raise ValueError(
-            f"数据长度 ({n}) 必须至少为 1 年 ({DAYS_PER_YEAR} 天)\n"
-            f"Data length ({n}) must be at least 1 year ({DAYS_PER_YEAR} days)"
+            f"数据长度 ({n_days}) 必须至少为 1 年 ({DAYS_PER_YEAR} 天)\n"
+            f"Data length ({n_days}) must be at least 1 year ({DAYS_PER_YEAR} days)"
         )
 
     if not 0 < target_occurrence_rate < 1:
@@ -993,7 +993,7 @@ def optimal_path_threshold(
     for day in range(DAYS_IN_LEAP_YEAR):
         # 创建日历日掩码（处理闰年）
         # Create calendar day mask (handle leap years)
-        day_mask = (np.arange(n) % DAYS_PER_YEAR) == (day % DAYS_PER_YEAR)
+        day_mask = (np.arange(n_days) % DAYS_PER_YEAR) == (day % DAYS_PER_YEAR)
         day_data = data[day_mask]
 
         if len(day_data) > 0:
@@ -1028,7 +1028,7 @@ def optimal_path_threshold(
         )
 
         # 计算当前发生率 (Calculate current occurrence rate)
-        current_rate = np.sum(extreme_mask) / n
+        current_rate = np.sum(extreme_mask) / n_days
 
         # 检查收敛 (Check convergence)
         rate_diff = abs(current_rate - target_occurrence_rate)
@@ -1131,17 +1131,17 @@ def identify_climatological_extremes(
     # 数据验证和转换 (Data validation and conversion)
     data = np.asarray(data, dtype=float)
     thresholds = np.asarray(thresholds, dtype=float)
-    n = len(data)
+    n_days = len(data)
 
     # 为每一天获取对应的阈值 (Get threshold for each day)
     # 使用模运算处理跨年数据 (Use modulo to handle multi-year data)
-    daily_thresholds = thresholds[np.arange(n) % DAYS_PER_YEAR]
+    daily_thresholds = thresholds[np.arange(n_days) % DAYS_PER_YEAR]
 
     # 标记超过阈值的日子 (Mark days exceeding threshold)
     above_threshold = data > daily_thresholds
 
     # 初始化极端事件掩码 (Initialize extreme event mask)
-    extreme_mask = np.zeros(n, dtype=bool)
+    extreme_mask = np.zeros(n_days, dtype=bool)
 
     # ========================================================================
     # 应用最小持续时间标准 (Apply Minimum Duration Criterion)
@@ -1150,14 +1150,14 @@ def identify_climatological_extremes(
     # 使用双指针算法识别连续时段
     # Use two-pointer algorithm to identify continuous periods
     i = 0
-    while i < n:
+    while i < n_days:
         if above_threshold[i]:
             # 找到超过阈值的起点 (Found start of period above threshold)
             start = i
 
             # 向前扫描找到连续时段的终点
             # Scan forward to find end of continuous period
-            while i < n and above_threshold[i]:
+            while i < n_days and above_threshold[i]:
                 i += 1
             end = i
 
@@ -1233,15 +1233,15 @@ def identify_events_from_mask(mask: Union[np.ndarray, List]) -> List[Dict]:
 
     # 扫描掩码以识别事件 (Scan mask to identify events)
     i = 0
-    n = len(mask)
+    n_days = len(mask)
 
-    while i < n:
+    while i < n_days:
         if mask[i]:
             # 事件开始 (Event starts)
             start = i
 
             # 向前扫描直到事件结束 (Scan forward until event ends)
-            while i < n and mask[i]:
+            while i < n_days and mask[i]:
                 i += 1
 
             # 记录事件 (Record event)
