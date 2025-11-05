@@ -5,6 +5,7 @@ Contribution analysis for meteorological drivers of extreme evaporation
 import numpy as np
 from typing import Dict, List, Tuple, Optional, Union
 from .penman_monteith import calculate_et0
+from .data_processing import calculate_climatological_means
 
 
 def calculate_contributions(T_mean, T_max, T_min, Rs, u2, ea, 
@@ -69,23 +70,9 @@ def calculate_contributions(T_mean, T_max, T_min, Rs, u2, ea,
     # Calculate original ET0
     ET0_orig = calculate_et0(T_mean, T_max, T_min, Rs, u2, ea, z, latitude, doy)
     
-    # Calculate climatological values (mean for each calendar day)
-    n = len(T_mean)
-    T_mean_clim = np.zeros(n)
-    T_max_clim = np.zeros(n)
-    T_min_clim = np.zeros(n)
-    Rs_clim = np.zeros(n)
-    u2_clim = np.zeros(n)
-    ea_clim = np.zeros(n)
-    
-    for day in range(365):
-        day_mask = (np.arange(n) % 365) == day
-        T_mean_clim[day_mask] = np.mean(T_mean[day_mask])
-        T_max_clim[day_mask] = np.mean(T_max[day_mask])
-        T_min_clim[day_mask] = np.mean(T_min[day_mask])
-        Rs_clim[day_mask] = np.mean(Rs[day_mask])
-        u2_clim[day_mask] = np.mean(u2[day_mask])
-        ea_clim[day_mask] = np.mean(ea[day_mask])
+    # Calculate climatological values efficiently using optimized helper
+    T_mean_clim, T_max_clim, T_min_clim, Rs_clim, u2_clim, ea_clim = \
+        calculate_climatological_means(T_mean, T_max, T_min, Rs, u2, ea)
     
     # Calculate ET0 with each forcing replaced by climatology
     ET0_temp_clim = calculate_et0(T_mean_clim, T_max_clim, T_min_clim, 
