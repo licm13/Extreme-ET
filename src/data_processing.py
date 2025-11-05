@@ -204,12 +204,12 @@ def calculate_autocorrelation(data, max_lag=10):
     return lags, autocorr
 
 
-def calculate_climatological_means(*arrays):
+def calculate_climatological_means(*arrays, days_per_year=365):
     """
     Calculate climatological daily means for one or more time series.
     
     This helper function efficiently computes the mean value for each calendar 
-    day (1-365) across all years in the dataset. It's optimized to process 
+    day across all years in the dataset. It's optimized to process 
     multiple arrays simultaneously, avoiding redundant day_mask calculations.
     
     Parameters
@@ -217,6 +217,9 @@ def calculate_climatological_means(*arrays):
     *arrays : array-like
         One or more time series arrays of the same length (daily resolution).
         Each array should contain at least one full year of data.
+    days_per_year : int, default=365
+        Number of days in a year (365 for non-leap years, 366 for leap years).
+        Use 365 for most applications as February 29 will be treated as March 1.
     
     Returns
     -------
@@ -255,8 +258,8 @@ def calculate_climatological_means(*arrays):
     climatological_means = [np.zeros(n_days) for _ in arrays]
     
     # Compute day masks once and reuse for all arrays
-    for day in range(365):
-        day_mask = (np.arange(n_days) % 365) == day
+    for day in range(days_per_year):
+        day_mask = (np.arange(n_days) % days_per_year) == day
         for i, arr in enumerate(arrays):
             climatological_means[i][day_mask] = np.mean(arr[day_mask])
     
@@ -287,7 +290,7 @@ def deseasonalize_data(data, method='difference'):
     data = np.asarray(data)
     n_days = len(data)
     
-    # Calculate seasonal component (365-day period) using optimized helper
+    # Calculate seasonal component (365-day period)
     seasonal = np.zeros(365)
     for day in range(365):
         day_mask = np.arange(n_days) % 365 == day
