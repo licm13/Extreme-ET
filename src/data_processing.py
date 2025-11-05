@@ -105,7 +105,7 @@ def calculate_hurst_exponent(data, max_lag=10):
     if data_std == 0:
         return 0.5
     
-    # Vectorized autocorrelation calculation (more efficient than list comprehension)
+    # Calculate autocorrelation for different lags
     autocorr = np.zeros(len(lags))
     for i, lag in enumerate(lags):
         # Use Pearson correlation formula directly for efficiency
