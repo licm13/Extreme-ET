@@ -449,7 +449,7 @@ def run_egli_attribution_workflow(
     detection_window: int = 7,
     block_size: int = DEFAULT_BLOCK_SIZE,
     **kwargs
-) -> Dict[str, Union[float, np.ndarray, pd.Series]]:
+) -> Dict[str, Union[float, np.ndarray, pd.Series, List[pd.Series], Ridge, StandardScaler]]:
     """
     完整的 Egli et al. (2025) 检测与归因工作流
     Complete Egli et al. (2025) Detection and Attribution (D&A) workflow.
