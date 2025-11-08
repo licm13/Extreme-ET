@@ -57,10 +57,13 @@
 ### 3. Extreme 的归因
 
 - **Penman–Monteith 驱动贡献**：`calculate_contributions` + `identify_dominant_driver`；可按季节 (`analyze_seasonal_contributions`) 与严重度 (`severity` 参数) 分组。
-- **事件复合诊断**：`analyze_onset_termination_conditions`、`identify_event_triggers`、`calculate_energy_balance_components` → ±10 天合成，追踪“高 VPD + 高辐射 → 极端 ET → 土壤湿度骤降”。
-- **检测与归因 (D&A)**：
-  - `detect_trend_and_detrend`、`quantile_regression_threshold`：去趋势、非平稳阈值；
-  - `separate_forced_variability`：与外部岭回归/正则化框架结合，区分受迫信号与内部变率。
+- **事件复合诊断**：`analyze_onset_termination_conditions`、`identify_event_triggers`、`calculate_energy_balance_components` → ±10 天合成，追踪"高 VPD + 高辐射 → 极端 ET → 土壤湿度骤降"。
+- **检测与归因 (D&A)** [**NEW in v1.2.0: Egli et al. 2025**]：
+  - **ETx7d 极端指标**：`detect_extremes_etx7d` → 计算年度 7 天滑动总和最大值；
+  - **岭回归检测器**：`fit_ridge_detector` + `apply_ridge_detector` → 训练统计模型从单成员模拟中提取强迫响应，应用于观测数据；
+  - **完整 D&A 工作流**：`run_egli_attribution_workflow` → 整合 ETx7d 计算、岭回归训练、趋势分析，实现人为强迫信号的检测与归因；
+  - **趋势分析**：`detect_trend_and_detrend`、`quantile_regression_threshold`：去趋势、非平稳阈值；
+  - `separate_forced_variability`：区分受迫信号与内部变率。
 - **闪旱耦合**：`calculate_drought_severity_index` + `decompose_water_cycle_by_extremes` → 极端 ET 与闪旱指标联动；`analyze_temporal_changes` 量化发生率变化。
 
 > **复杂情景示例**：比较 1980–2000 vs. 2001–2023 两期的极端 ET 对水循环强度贡献（`analyze_temporal_changes`），并用 `classify_water_cycle_regime` 标记加速干化/增湿，再检查 `identify_event_triggers` 输出的 VPD 异常一致性。
@@ -81,7 +84,7 @@
 |------|---------------|------------|---------------|-----------|
 | **A. 中国极端蒸散事件（ExEvEs）** | 区域/季节差异、事件前后能量-水分演化 | ERA5-Land、GLEAM；`standardize_to_zscore` → `detect_extreme_events_clim` → `identify_events_from_mask`；事件合成 (`analyze_onset_termination_conditions`)、能量分配 (`analyze_energy_partitioning`) | `calculate_event_statistics` 输出持续/强度，`analyze_event_intensity_evolution` 评估累积耗水 | 多阈值对比（`detect_extreme_events_hist` vs. `detect_compound_extreme_events`），产品交叉验证 |
 | **B. 中国极端 ETo 主控因子** | 温度/辐射/湿度/风贡献、严重度与时标依赖 | 台站/CMADA/ERA5-Land；`calculate_et0` → `calculate_contributions` → `analyze_seasonal_contributions`; 不确定性分解通过多驱动组合 | `identify_dominant_driver`、`dynamic_perturbation_response`、`compute_perturbation_pathway` | 湿度口径差异：`calculate_vapor_pressure_from_vpd`；多数据集结果对比 |
-| **C. 东亚极端 ETx7d 受迫信号** | 1980–2023 趋势是否超内部变率、与 VPD/闪旱关系 | ERA5-Land、GLEAM、CMIP6；`moving_average` 生成 ETx7d → `detect_trend_and_detrend`、`quantile_regression_threshold`；`analyze_temporal_changes` + `calculate_drought_severity_index` | `compare_stationary_vs_nonstationary`、`separate_forced_variability`；配合外部岭回归实现强迫提取 | 模式偏差：使用 `standardize_to_zscore` 统一气候态 |
+| **C. 东亚极端 ETx7d 受迫信号** [**NEW: Egli 2025**] | 1980–2023 趋势是否超内部变率、与 VPD/闪旱关系 | ERA5-Land、GLEAM、CMIP6；**`detect_extremes_etx7d`** → 计算 ETx7d；**`run_egli_attribution_workflow`** → 完整 D&A 分析（岭回归检测器 + 趋势归因）；`analyze_temporal_changes` + `calculate_drought_severity_index` | **`fit_ridge_detector`、`apply_ridge_detector`、`run_egli_attribution_workflow`** → 核心 D&A 框架；`compare_stationary_vs_nonstationary`、`separate_forced_variability` → 辅助工具 | 模式偏差：使用 `standardize_to_zscore` 统一气候态；岭回归正则化参数通过交叉验证选择 |
 | **D. 极端 ET → 闪旱触发链** | 高 ET 是否导致土壤湿度 1–2 周内骤降 | ERA5-Land、GLEAM、台站土壤湿度；`identify_events_from_mask` → `analyze_event_intensity_evolution` → `identify_event_triggers`；`decompose_water_cycle_by_extremes` 检测 P−E 响应 | `analyze_onset_termination_conditions`（±10 天合成）、`calculate_drought_severity_index`（闪旱指标） | 土壤湿度噪声：`moving_average` 平滑，多数据源互验 |
 | **E. 极端下 T/ET vs. E_s/ET 主导权衡** | 极端期间植物/土壤蒸发贡献是否转变 | GLEAM 组分、FLUXCOM-X、SIF/UET 案例；`identify_events_from_mask` → 对 T、E_s 调用 `calculate_event_statistics`；`analyze_energy_partitioning` 评估 Bowen 比；`calculate_spatial_correlation` 探索土地覆被差异 | `analyze_seasonal_water_cycle` 按土地覆被/季节分组 | 组分不确定性：多产品交叉，必要时引入塔站校正 |
 
@@ -159,6 +162,7 @@
 | `identify_climatological_extremes` | 应用气候学阈值至时间序列 | 使用 DOY 阈值数组映射到逐日数据。|
 | `identify_events_from_mask` | 将布尔掩膜分解为事件列表 | 连续 True 合并为事件，返回起止索引、峰值、持续等。|
 | `calculate_event_statistics` | 汇总事件强度指标 | 计算持续时间、峰值、累计量、间隔、严重度等统计分布。|
+| **`detect_extremes_etx7d`** [**NEW**] | **计算 ETx7d 极端指标（Egli 2025）** | **N 天滑动总和 → 按年分组 → 取年最大值；返回年度 ETx7d 时间序列（`pd.Series`），用于 D&A 分析。** |
 
 ### src/penman_monteith.py
 
@@ -270,6 +274,34 @@
 | `sample_series_at_point` | 最近邻或双线性抽取栅格时间序列。|
 | `bilinear_on_regular_grid` | 双线性插值实现。|
 
+### src/detection_attribution.py [**NEW in v1.2.0: Egli et al. 2025**]
+
+| 函数 | 功能 | 数学/算法原理 |
+|------|------|---------------|
+| **`fit_ridge_detector`** | **训练岭回归检测器提取强迫响应** | **输入**: CMIP6 单成员 (X) 与集合平均 (y)；**方法**: StandardScaler 标准化 → RidgeCV 交叉验证选最优 α → Ridge 拟合；**输出**: 训练好的模型 + 标准化器。**原理**: 学习从"强迫+内部变率"中提取"强迫响应"的统计模式。 |
+| **`apply_ridge_detector`** | **应用检测器估算观测/模拟的强迫响应** | **输入**: 训练好的模型 + 标准化器 + 新数据（观测/模拟）；**流程**: 标准化 → 预测 → 逆标准化；**输出**: 估算的强迫响应时间序列（物理单位）。 |
+| **`run_egli_attribution_workflow`** | **完整 D&A 工作流（Egli 2025）** | **完整流程**: 1) 对 historical/piControl/observation 数据调用 `detect_extremes_etx7d`；2) 准备训练数据（historical 单成员 vs. 集合平均）；3) 调用 `fit_ridge_detector` 训练模型；4) 调用 `apply_ridge_detector` 估算三者的强迫响应；5) 使用 `detect_trend_and_detrend` 计算趋势分布（observation: 单个趋势，historical: 多成员趋势，piControl: 非重叠块趋势）；**输出**: `{'obs_trend', 'hist_trends', 'picontrol_trends', 'forced_response_obs', ...}` 字典。**检测与归因**: 比较 obs_trend 与 piControl 分布 → 检测；比较 obs_trend 与 historical 分布 → 归因。 |
+
+**使用示例**:
+```python
+# 完整 D&A 分析
+from src.detection_attribution import run_egli_attribution_workflow
+
+results = run_egli_attribution_workflow(
+    historical_data_members=hist_members,    # list of (n_days,) arrays
+    picontrol_data_members=pi_members,       # list of (n_days,) arrays
+    observation_data=obs_data,               # (n_days,) array
+    dates_hist=hist_dates,
+    dates_pi=pi_dates,
+    dates_obs=obs_dates,
+    trend_range=(1980, 2020),                # 趋势分析时段
+    detection_window=7                        # ETx7d 窗口
+)
+
+print(f"观测趋势: {results['obs_trend']:.4f} mm/year")
+print(f"piControl 95th 百分位数: {np.percentile(results['picontrol_trends'], 95):.4f}")
+```
+
 ### src/utils.py
 
 | 函数 | 功能 |
@@ -285,9 +317,11 @@
 
 ## 与四个任务的直接对应关系总结
 
-1. **产品 & 定义**：`penman_monteith` + `extreme_detection` + `nonstationary_threshold`，提供从驱动场到阈值的完整链路。
+1. **产品 & 定义**：`penman_monteith` + `extreme_detection` (包括新增的 **`detect_extremes_etx7d`**) + `nonstationary_threshold`，提供从驱动场到阈值的完整链路。
 2. **China vs Global**：`data_processing` + `event_evolution` + `spatial_analysis` + `water_cycle_analysis` 形成可套用到任意区域的流程。
-3. **归因**：`contribution_analysis`、`event_evolution`、`water_cycle_analysis`、`multivariate_extremes`、`nonstationary_threshold` 构成“驱动 → 能量 → 水循环 → 复合风险”的闭环。
+3. **归因**：
+   - **驱动因子归因**: `contribution_analysis`、`event_evolution`、`water_cycle_analysis`、`multivariate_extremes`、`nonstationary_threshold` 构成"驱动 → 能量 → 水循环 → 复合风险"的闭环。
+   - **人为强迫归因** [**NEW in v1.2.0**]: **`detection_attribution`** 模块实现 Egli et al. (2025) 的完整 D&A 框架，通过岭回归从观测和模拟数据中分离人为强迫信号，并进行检测与归因分析。
 4. **PET Extreme**：`penman_monteith` 系列函数负责 PET 计算，`contribution_analysis`、`water_cycle_analysis`、`event_evolution` 提供对农业/水资源意义的解读指标。
 
 凭借以上模块化设计，可快速实现“中国极端 ET 事件 vs 全球”以及“PET 极端归因”的论文/报告工作流。
