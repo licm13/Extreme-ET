@@ -1,0 +1,30 @@
+[build-system]
+requires = ["setuptools>=61", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "extreme-et-detection"
+version = "0.1.0"
+description = "Extreme evapotranspiration detection and attribution framework (Egli et al. reproduction + WRR/NCC extensions)."
+authors = [
+  {name="HydroX Lab", email="example@scut.edu.cn"}
+]
+requires-python = ">=3.9"
+dependencies = [
+  "numpy",
+  "xarray",
+  "pandas",
+  "scipy",
+  "scikit-learn",
+  "matplotlib",
+  "cartopy",
+  "netCDF4",
+  "dask",
+  "pymannkendall"
+]
+
+[project.optional-dependencies]
+dev = ["pytest", "pytest-cov", "black", "isort", "ruff"]
+
+[tool.setuptools.packages.find]
+where = ["src"]

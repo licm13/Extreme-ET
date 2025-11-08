@@ -1,0 +1,17 @@
+name: et-extreme-detection
+channels:
+  - conda-forge
+dependencies:
+  - python>=3.9
+  - numpy
+  - xarray
+  - pandas
+  - scipy
+  - scikit-learn
+  - matplotlib
+  - cartopy
+  - netCDF4
+  - dask
+  - pip
+  - pip:
+      - pymannkendall
