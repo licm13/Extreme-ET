@@ -107,7 +107,7 @@ def simulate_picontrol_data(
             size=n_years * 365
         )
         # 添加日内变率 (Add daily variability)
-        daily_et += np.random.normal(0, noise_std * 0.5, size=n_years * 365)
+        daily_et = np.maximum(0, daily_et + np.random.normal(0, noise_std * 0.5, size=n_years * 365))
 
         data.append(daily_et)
 
