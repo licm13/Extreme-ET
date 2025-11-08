@@ -499,7 +499,7 @@ def main():
     plt.tight_layout()
 
     # 保存图形 (Save figure)
-    output_path = 'egli_2025_detection_attribution_result.png'
+    output_path = 'outputs/egli_2025_detection_attribution_result.png'
     plt.savefig(output_path, dpi=300, bbox_inches='tight')
     print(f"  ✓ 图形已保存: {output_path}")
     print(f"  ✓ Figure saved: {output_path}")
