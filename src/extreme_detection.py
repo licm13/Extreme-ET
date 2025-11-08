@@ -1333,6 +1333,216 @@ def calculate_event_statistics(
     return event_stats
 
 
+def detect_extremes_etx7d(
+    data: Union[np.ndarray, List, pd.Series],
+    dates: Union[np.ndarray, pd.DatetimeIndex],
+    window_days: int = 7
+) -> pd.Series:
+    """
+    计算 ETx7d 极端指标（每年 N 天滑动总和的最大值）
+    Calculate ETx7d extreme index (annual maximum of N-day rolling sum).
+
+    算法原理 (Algorithm Principle):
+    -----------------------------
+    该方法来自 Egli et al. (2025)，用于检测极端蒸散发事件。
+    This method is from Egli et al. (2025) for detecting extreme ET events.
+
+    核心步骤 (Core Steps):
+    1. 计算 N 天滑动总和（默认 7 天）
+       Calculate N-day rolling sum (default 7 days)
+    2. 按年份分组
+       Group by year
+    3. 找出每年的最大值
+       Find maximum value for each year
+
+    物理意义 (Physical Meaning):
+    --------------------------
+    - ETx7d 表示年内任意连续 7 天的最大累积蒸散发
+      ETx7d represents the maximum cumulative ET over any consecutive 7 days in a year
+    - 该指标反映了短期极端蒸散发强度
+      This index reflects short-term extreme ET intensity
+    - 适用于检测人为强迫信号的检测与归因分析
+      Suitable for detection and attribution of anthropogenic forcing signals
+
+    参数 (Parameters):
+    -----------------
+    data : array-like
+        日蒸散发时间序列（单位: mm/day）
+        Daily ET time series (units: mm/day)
+        要求: 至少包含 1 年数据
+        Requirement: At least 1 year of data
+
+    dates : array-like or pd.DatetimeIndex
+        对应的日期序列
+        Corresponding date sequence
+        要求: 与 data 长度相同
+        Requirement: Same length as data
+
+    window_days : int, default=7
+        滑动窗口大小（天数）
+        Rolling window size (days)
+        典型值: 5-10 天
+        Typical values: 5-10 days
+
+    返回值 (Returns):
+    ---------------
+    etx7d : pd.Series
+        每年的 ETx7d 值
+        ETx7d value for each year
+        索引 (index): 年份
+        值 (values): ETx7d (mm)
+
+    引发异常 (Raises):
+    -----------------
+    ValueError
+        如果数据长度不足 365 天
+        If data length is less than 365 days
+        如果 data 和 dates 长度不匹配
+        If data and dates have different lengths
+    TypeError
+        如果输入类型不正确
+        If input type is incorrect
+
+    示例 (Examples):
+    --------------
+    示例 1: 基本用法 (Basic usage)
+    >>> import numpy as np
+    >>> import pandas as pd
+    >>> from datetime import datetime, timedelta
+    >>>
+    >>> # 生成 3 年的合成数据 (Generate 3 years of synthetic data)
+    >>> start_date = datetime(2020, 1, 1)
+    >>> dates = pd.date_range(start_date, periods=365*3, freq='D')
+    >>> data = np.random.gamma(2, 2, len(dates))  # 模拟日 ET0
+    >>>
+    >>> # 计算 ETx7d (Calculate ETx7d)
+    >>> etx7d = detect_extremes_etx7d(data, dates, window_days=7)
+    >>> print(etx7d)
+    2020    XX.XX
+    2021    XX.XX
+    2022    XX.XX
+    dtype: float64
+
+    示例 2: 使用不同窗口大小 (Using different window sizes)
+    >>> # 计算 ETx5d 和 ETx10d
+    >>> etx5d = detect_extremes_etx7d(data, dates, window_days=5)
+    >>> etx10d = detect_extremes_etx7d(data, dates, window_days=10)
+    >>> print(f"ETx5d 平均: {etx5d.mean():.2f} mm")
+    >>> print(f"ETx10d 平均: {etx10d.mean():.2f} mm")
+
+    注释 (Notes):
+    -----------
+    算法复杂度 (Computational Complexity):
+    - 时间复杂度: O(n) 单次扫描
+      Time complexity: O(n) single pass
+    - 空间复杂度: O(n)
+      Space complexity: O(n)
+
+    与其他极端指标的对比 (Comparison with other extreme indices):
+    - vs ERT_hist: ETx7d 关注累积效应，ERT_hist 关注单日极值
+      vs ERT_hist: ETx7d focuses on cumulative effects, ERT_hist on single-day extremes
+    - vs ERT_clim: ETx7d 是绝对指标，ERT_clim 是相对于气候学的异常
+      vs ERT_clim: ETx7d is absolute, ERT_clim is relative to climatology
+
+    参考文献 (References):
+    --------------------
+    Egli et al. (2025). Detecting Anthropogenically Induced Changes in Extreme
+    and Seasonal Evapotranspiration Observations.
+
+    See Also
+    --------
+    detect_extreme_events_hist : 历史阈值法 (Historical threshold method)
+    detect_extreme_events_clim : 气候学方法 (Climatological method)
+    """
+    # ========================================================================
+    # 输入验证 (Input Validation)
+    # ========================================================================
+
+    # 类型转换 (Type conversion)
+    try:
+        data = np.asarray(data, dtype=float)
+    except (ValueError, TypeError) as e:
+        raise TypeError(
+            f"输入数据无法转换为数值数组 (Cannot convert data to numeric array): {e}"
+        )
+
+    # 转换日期为 pandas DatetimeIndex (Convert dates to pandas DatetimeIndex)
+    try:
+        dates = pd.to_datetime(dates)
+    except Exception as e:
+        raise TypeError(
+            f"日期数据无法转换为 DatetimeIndex (Cannot convert dates to DatetimeIndex): {e}"
+        )
+
+    # 检查数据和日期长度是否匹配 (Check if data and dates have same length)
+    if len(data) != len(dates):
+        raise ValueError(
+            f"数据长度 ({len(data)}) 与日期长度 ({len(dates)}) 不匹配\n"
+            f"Data length ({len(data)}) does not match dates length ({len(dates)})"
+        )
+
+    # 检查数据长度 (Check data length)
+    if len(data) < DAYS_PER_YEAR:
+        raise ValueError(
+            f"数据长度 ({len(data)} 天) 少于最小要求 ({DAYS_PER_YEAR} 天)\n"
+            f"Data length ({len(data)} days) is less than minimum ({DAYS_PER_YEAR} days)"
+        )
+
+    # 检查窗口大小 (Check window size)
+    if window_days < 1:
+        raise ValueError(
+            f"窗口大小 window_days ({window_days}) 必须 >= 1\n"
+            f"Window size window_days ({window_days}) must be >= 1"
+        )
+
+    # 检查是否有 NaN 值 (Check for NaN values)
+    if np.any(np.isnan(data)):
+        raise ValueError(
+            "输入数据包含 NaN 值，请先进行数据清洗\n"
+            "Input data contains NaN values, please clean data first"
+        )
+
+    # ========================================================================
+    # 构造带时间索引的 Series (Construct time-indexed Series)
+    # ========================================================================
+
+    # 创建 pandas Series，使用日期作为索引
+    # Create pandas Series with dates as index
+    ts = pd.Series(data, index=dates)
+
+    # ========================================================================
+    # 计算滑动总和 (Calculate Rolling Sum)
+    # ========================================================================
+
+    # 计算 N 天滑动窗口的总和
+    # Calculate N-day rolling sum
+    # center=False 表示窗口向后对齐（包括当前日及之前 N-1 天）
+    # center=False means right-aligned window (includes current day and previous N-1 days)
+    rolling_sum = ts.rolling(window=window_days, center=False).sum()
+
+    # ========================================================================
+    # 按年份分组并计算年最大值 (Group by Year and Calculate Annual Maximum)
+    # ========================================================================
+
+    # 提取年份 (Extract year)
+    years = rolling_sum.index.year
+
+    # 按年份分组，计算每年的最大值
+    # Group by year and calculate maximum for each year
+    # 这将返回一个 Series，索引为年份，值为该年的 ETx7d
+    # This returns a Series with year as index and ETx7d as values
+    etx7d = rolling_sum.groupby(years).max()
+
+    # 设置索引名称 (Set index name)
+    etx7d.index.name = 'year'
+
+    # ========================================================================
+    # 返回结果 (Return Results)
+    # ========================================================================
+
+    return etx7d
+
+
 # ============================================================================
 # 模块元信息 (Module Metadata)
 # ============================================================================
@@ -1345,4 +1555,5 @@ __all__ = [
     'identify_climatological_extremes',
     'identify_events_from_mask',
     'calculate_event_statistics',
+    'detect_extremes_etx7d',
 ]

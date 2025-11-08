@@ -14,6 +14,9 @@ from two top-tier journal papers.
 2. Zhao et al. (2025). Regional variations in drivers of extreme reference
    evapotranspiration across the contiguous United States. Water Resources Research.
 
+3. Egli et al. (2025). Detecting Anthropogenically Induced Changes in Extreme
+   and Seasonal Evapotranspiration Observations.
+
 主要功能 / Main Features:
 --------------------------
 1. 极端事件检测 / Extreme Event Detection
@@ -128,6 +131,11 @@ Extreme-ET Development Team
   * 多变量极端分析 (Copula) / Multivariate extreme analysis (Copula-based)
   * 空间分析功能 / Spatial analysis capabilities
   * 事件物理演化分析 / Event physical evolution analysis
+- 1.2.0 (2025-11): 添加 Egli (2025) 检测与归因 (D&A) 框架 / Added Egli (2025) Detection & Attribution (D&A) framework
+  * ETx7d 极端指标 / ETx7d extreme index
+  * 岭回归检测器 / Ridge regression detector
+  * 强迫响应分离 / Forced response separation
+  * 趋势检测与归因分析 / Trend detection and attribution analysis
 
 联系方式 / Contact:
 -------------------
@@ -140,7 +148,7 @@ Extreme-ET Development Team
 # 版本信息 / Version Information
 # ============================================================================
 
-__version__ = "1.1.0"
+__version__ = "1.2.0"
 __author__ = "Extreme-ET Development Team"
 __license__ = "MIT"
 __maintainer__ = "Extreme-ET Team"
@@ -161,6 +169,7 @@ from .extreme_detection import (
     optimal_path_threshold,          # 最优路径阈值 / Optimal path threshold
     identify_events_from_mask,       # 事件提取 / Event extraction
     calculate_event_statistics,      # 事件统计 / Event statistics
+    detect_extremes_etx7d,           # ETx7d 极端指标 / ETx7d extreme index (Egli 2025)
 )
 
 # 驱动因子分析模块 / Driver Attribution Analysis Module
@@ -278,6 +287,15 @@ from .event_evolution import (
     compare_seasonal_event_characteristics, # 季节性事件特征 / Seasonal event characteristics
 )
 
+# 检测与归因分析模块 / Detection and Attribution Analysis Module (New in v1.2.0)
+# 基于 Egli et al. (2025) 的岭回归 D&A 框架
+# Based on Egli et al. (2025) ridge regression D&A framework
+from .detection_attribution import (
+    fit_ridge_detector,                     # 训练岭回归检测器 / Train ridge detector
+    apply_ridge_detector,                   # 应用岭回归检测器 / Apply ridge detector
+    run_egli_attribution_workflow,          # 完整 D&A 工作流 / Complete D&A workflow
+)
+
 # ============================================================================
 # 公共 API / Public API
 # ============================================================================
@@ -291,6 +309,7 @@ __all__ = [
     "optimal_path_threshold",
     "identify_events_from_mask",
     "calculate_event_statistics",
+    "detect_extremes_etx7d",
 
     # 驱动因子分析 / Driver Attribution
     "calculate_contributions",
@@ -347,6 +366,11 @@ __all__ = [
     "analyze_onset_termination_conditions",
     "analyze_energy_partitioning",
     "identify_event_triggers",
+
+    # 检测与归因 (New in v1.2.0) / Detection and Attribution (D&A)
+    "fit_ridge_detector",
+    "apply_ridge_detector",
+    "run_egli_attribution_workflow",
 ]
 
 # ============================================================================

@@ -7,6 +7,7 @@ A comprehensive Python toolkit for analyzing extreme evaporation events, impleme
 
 - Markonis (2025): "On the Definition of Extreme Evaporation Events" (Geophysical Research Letters)
 - Zhao et al. (2025): "Regional Variations in Drivers of Extreme Reference Evapotranspiration Across CONUS" (Water Resources Research)
+- Egli et al. (2025): "Detecting Anthropogenically Induced Changes in Extreme and Seasonal Evapotranspiration Observations"
 
 ## Table of Contents
 
@@ -31,6 +32,12 @@ A comprehensive Python toolkit for analyzing extreme evaporation events, impleme
 - ERT_hist: historical relative threshold
 - ERT_clim: climatological, season-aware thresholds (heatwave-like)
 - OPT: optimal day-of-year threshold family for target severity
+- ETx7d: annual maximum of 7-day rolling sum (Egli et al. 2025)
+
+### Detection and Attribution (D&A) Framework (New in v1.2.0)
+- Ridge regression detector for forced response extraction
+- Trend analysis for observations, historical simulations, and piControl
+- Anthropogenic signal detection and attribution
 
 ### Evapotranspiration Calculation
 - ASCE-PM reference ET0
@@ -140,6 +147,7 @@ series_bl = sample_series_at_point(da, lat, lon, method='bilinear')
 Complete workflows are under `examples/`:
 - example_markonis_2025.py: ExEvE detection, persistence diagnostics, water cycle decomposition, trends
 - example_zhao_2025.py: ET0 diagnostics, ERT_hist/ERT_clim/OPT comparisons, contributions, seasonal patterns
+- example_egli_2025.py: Detection & attribution (D&A) of anthropogenic forcing in extreme ET (NEW in v1.2.0)
 - example_multires_et_extremes.py: Multi-resolution/frequency validation vs. stations
 
 Outputs are saved to `examples/outputs/`.
