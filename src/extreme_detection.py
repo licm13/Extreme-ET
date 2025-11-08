@@ -1447,7 +1447,7 @@ def detect_extremes_etx7d(
     参考文献 (References):
     --------------------
     Egli et al. (2025). Detecting Anthropogenically Induced Changes in Extreme
-    and Seasonal Evapotranspiration Observations. (论文全称待补充)
+    and Seasonal Evapotranspiration Observations.
 
     See Also
     --------
