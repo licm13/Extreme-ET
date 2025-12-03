@@ -381,7 +381,7 @@ def test_multiple_detection_methods_comparison():
     # 方法3: OPT（使用简化版本，如果实现了的话）
     try:
         mask_opt, thresholds_opt = optimal_path_threshold(
-            et0, target_severity=target_severity
+            et0, severity=target_severity
         )
     except (NameError, AttributeError):
         pytest.skip("OPT method not implemented")
