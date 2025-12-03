@@ -785,12 +785,17 @@ if __name__ == "__main__":
         except Exception as e:
             print(f"  ✗ FAILED: {e}")
 
-        print("\n[8/8] Test: Error handling...")
+        print("\n[8/9] Test: Error handling...")
         try:
             test_error_handling()
         except Exception as e:
             print(f"  ✗ FAILED: {e}")
 
+        print("\n[9/9] Test: Regression stability...")
+        try:
+            test_regression_stability()
+        except Exception as e:
+            print(f"  ✗ FAILED: {e}")
     print("\n" + "=" * 70)
     print("All tests completed!")
     print("=" * 70)
