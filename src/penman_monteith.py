@@ -143,7 +143,11 @@ def calculate_net_radiation(Rs, T_max, T_min, ea, latitude, doy):
     
     # Cloudiness function
     Rs_so = (0.75 + 2e-5 * 0) * Ra  # Clear sky radiation (simplified)
-    cloudiness = 1.35 * (Rs / Rs_so) - 0.35
+    # Guard against divide-by-zero when Ra≈0（极夜等情况）
+    ratio = np.divide(Rs, Rs_so, out=np.zeros_like(Rs, dtype=float), where=Rs_so > 0)
+    cloudiness = 1.35 * ratio - 0.35
+    # 若 Rs_so 为 0，则使用最小云量因子 0.05
+    cloudiness = np.where(Rs_so > 0, cloudiness, 0.05)
     cloudiness = np.clip(cloudiness, 0.05, 1.0)
     
     # Longwave radiation
@@ -182,8 +186,10 @@ def calculate_extraterrestrial_radiation(latitude, doy):
     # Solar declination
     delta = 0.409 * np.sin(2 * np.pi * doy / 365 - 1.39)
     
-    # Sunset hour angle
-    omega_s = np.arccos(-np.tan(lat_rad) * np.tan(delta))
+    # Sunset hour angle (clip to valid domain to avoid NaNs at extreme latitudes)
+    cos_omega_s = -np.tan(lat_rad) * np.tan(delta)
+    cos_omega_s = np.clip(cos_omega_s, -1.0, 1.0)
+    omega_s = np.arccos(cos_omega_s)
     
     # Inverse relative distance Earth-Sun
     dr = 1 + 0.033 * np.cos(2 * np.pi * doy / 365)
